@@ -58,6 +58,13 @@
           "id": "kimi-k2.5",
           // Optional: remap model name sent upstream (default = id)
           "upstream_name": "moonshotai/kimi-k2.5",
+          // Optional: extra names that resolve to this model when the inbound
+          // request uses no provider prefix. Useful for letting Claude Code's
+          // built-in default model slots map onto whatever upstream you want.
+          "aliases": ["kimi", "claude-haiku-4-5"],
+          // Optional: regex (Python re) — full-string match against the
+          // inbound model id. Same purpose as `aliases` but pattern-based.
+          "alias_pattern": "^claude-haiku-.*",
           // Optional capabilities. Permissive default if omitted.
           "supports": {
             "tools": true,

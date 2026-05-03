@@ -5,7 +5,6 @@ Multi-format bidirectional translation proxy for LLM APIs. Translates between Op
 ## Quick Start
 
 ### uvx (no install required)
-
 ```bash
 # Create your config
 mkdir -p ~/.rosetta-llm
@@ -26,7 +25,6 @@ ROSETTA_CONFIG=/path/to/config.json uvx rosetta-llm
 ```
 
 ### uv tool install (persistent)
-
 ```bash
 uv tool install rosetta-llm
 rosetta-llm --help
@@ -34,7 +32,6 @@ rosetta-llm --config ~/my-config.json --port 9999
 ```
 
 ### Docker
-
 ```bash
 docker run -p 7860:7860 \
   -v ~/.rosetta-llm/config.json:/app/config.json \
@@ -44,7 +41,6 @@ docker run -p 7860:7860 \
 ```
 
 ### From source
-
 ```bash
 git clone https://github.com/Lokesh-Chimakurthi/rosetta-llm.git
 cd rosetta-llm
@@ -65,15 +61,15 @@ python -m rosetta
 
 ## Endpoints
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/v1/messages` | Anthropic Messages |
-| POST | `/v1/messages/count_tokens` | Local tiktoken token count |
-| POST | `/v1/chat/completions` | OpenAI Chat Completions |
-| POST | `/v1/responses` | OpenAI Responses |
-| GET | `/v1/models` | Merged model list |
-| GET | `/health` | Liveness check |
-| GET | `/providers` | Provider status |
+| Method | Path                        | Purpose                    |
+| ------ | --------------------------- | -------------------------- |
+| POST   | `/v1/messages`              | Anthropic Messages         |
+| POST   | `/v1/messages/count_tokens` | Local tiktoken token count |
+| POST   | `/v1/chat/completions`      | OpenAI Chat Completions    |
+| POST   | `/v1/responses`             | OpenAI Responses           |
+| GET    | `/v1/models`                | Merged model list          |
+| GET    | `/health`                   | Liveness check             |
+| GET    | `/providers`                | Provider status            |
 
 ## Model ID Format
 
@@ -84,12 +80,50 @@ Examples:
 - `anthropic/claude-opus-4-7` — routes to the "anthropic" provider
 - `openai/gpt-5.4` — routes to the "openai" provider
 
+### Shorthand and aliases
+
+The `<provider>/<model>` form is the canonical lookup and always wins. When a request arrives without the provider prefix, Rosetta falls back to a tiered shorthand search across every configured model:
+
+1. **Exact match** on the model `id`, any string in `aliases`, or a full-string match against `alias_pattern` (a Python regex).
+2. **Case-insensitive substring match** against the model `id` and each alias — only used if no exact match was found.
+
+If exactly one model matches, it resolves. If more than one matches in the same tier, the request fails with a 400 listing every candidate `provider/model` so the caller knows what to type to disambiguate.
+
+This makes Rosetta a true drop-in for Claude Code: typing `haiku`, `claude-haiku`, or `claude-haiku-4-5` into the `/model` picker (or leaving Claude Code's built-in defaults like `ANTHROPIC_DEFAULT_OPUS_MODEL` untouched) all resolve to the same configured target as long as nothing else collides.
+
+Example config that maps Claude Code's hard-coded default model slots at OpenRouter:
+
+```jsonc
+{
+  "providers": {
+    "openrouter": {
+      "format": "openai_chat",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "models": [
+        {
+          "id": "anthropic/claude-opus-4.1",
+          "aliases": ["claude-opus-4-7", "claude-opus-4-5"]
+        },
+        {
+          "id": "anthropic/claude-sonnet-4.5",
+          "alias_pattern": "^claude-sonnet-.*"
+        },
+        {
+          "id": "openai/gpt-4o-mini",
+          "aliases": ["claude-haiku-4-5"]
+        }
+      ]
+    }
+  }
+}
+```
+
 ## Claude Code Integration
 
 Rosetta is a fully compatible [Claude Code LLM gateway](https://code.claude.com/docs/en/llm-gateway). Point Claude Code at Rosetta and all configured providers appear in the `/model` picker — including non-Anthropic models.
 
 ### Setup
-
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:7860
 export ANTHROPIC_AUTH_TOKEN=sk-proxy-XXXX   # if proxy auth is enabled
@@ -123,22 +157,21 @@ Rosetta forwards Claude Code's session headers (`anthropic-beta`, `anthropic-ver
 
 The proxy automatically translates between formats:
 
-| Client Endpoint | Provider Format | Path |
-|----------------|-----------------|------|
-| `/v1/messages` | anthropic | passthrough |
-| `/v1/messages` | openai_chat | translate via IR |
-| `/v1/messages` | openai_responses | translate via IR |
-| `/v1/chat/completions` | openai_chat | passthrough |
-| `/v1/chat/completions` | anthropic | translate via IR |
+| Client Endpoint        | Provider Format  | Path             |
+| ---------------------- | ---------------- | ---------------- |
+| `/v1/messages`         | anthropic        | passthrough      |
+| `/v1/messages`         | openai_chat      | translate via IR |
+| `/v1/messages`         | openai_responses | translate via IR |
+| `/v1/chat/completions` | openai_chat      | passthrough      |
+| `/v1/chat/completions` | anthropic        | translate via IR |
 | `/v1/chat/completions` | openai_responses | translate via IR |
-| `/v1/responses` | openai_responses | passthrough |
-| `/v1/responses` | anthropic | translate via IR |
-| `/v1/responses` | openai_chat | translate via IR |
+| `/v1/responses`        | openai_responses | passthrough      |
+| `/v1/responses`        | anthropic        | translate via IR |
+| `/v1/responses`        | openai_chat      | translate via IR |
 
 ## Usage Examples
 
 ### Anthropic client -> OpenAI-backed model
-
 ```bash
 curl http://localhost:7860/v1/messages \
   -H "Authorization: Bearer sk-proxy-XXXX" \
@@ -151,7 +184,6 @@ curl http://localhost:7860/v1/messages \
 ```
 
 ### OpenAI client -> Anthropic-backed model
-
 ```bash
 curl http://localhost:7860/v1/chat/completions \
   -H "Authorization: Bearer sk-proxy-XXXX" \
@@ -165,13 +197,12 @@ curl http://localhost:7860/v1/chat/completions \
 
 ## Environment Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `ROSETTA_CONFIG` | Path to config.json (default: `~/.rosetta-llm/config.json`) |
+| Variable          | Purpose                                                     |
+| ----------------- | ----------------------------------------------------------- |
+| `ROSETTA_CONFIG`  | Path to config.json (default: `~/.rosetta-llm/config.json`) |
 | Provider-specific | Set via `api_key_env` in config (e.g., `ANTHROPIC_API_KEY`) |
 
 ## Development
-
 ```bash
 uv sync --group dev
 uv run pytest -q

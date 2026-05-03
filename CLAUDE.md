@@ -3,7 +3,6 @@
 Multi-format bidirectional LLM proxy. Translates between OpenAI Chat Completions, OpenAI Responses, and Anthropic Messages — letting any client SDK talk to any provider regardless of the provider's native API format.
 
 ## Quick commands
-
 ```bash
 uv sync                        # install deps + dev tools
 uv run pytest tests/ -q        # run tests (18)
@@ -14,7 +13,6 @@ uv run python -m rosetta       # start the proxy (reads ~/.rosetta-llm/config.js
 ```
 
 ## Running
-
 ```bash
 # uvx (no install)
 uvx rosetta-llm
@@ -56,6 +54,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 ## Critical invariants
 
 ### Anthropic codec
+
 - **Tool-result ordering**: within a user message, all `tool_result` blocks MUST precede any `text` block. `_enforce_tool_result_ordering()` auto-repairs on render.
 - **Tool-use input**: Anthropic's `tool_use.input` is a JSON object. Serialize to `arguments_json_text` (string) in IR via orjson; deserialize back on render.
 - **Reasoning signature encoding**: `f"{encrypted_content}@{reasoning_id}"` — split on the **last** `@` to decode. Compaction items prefix with `cm1#`. This is lossless across Anthropic ↔ Responses round-trips.
@@ -64,6 +63,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Tool extras**: `defer_loading`, `type`, `cache_control` from tool `_raw` are merged into rendered tool definitions.
 
 ### OpenAI Chat codec
+
 - **System/developer roles**: extracted from message list, concatenated with `\n\n`, stored as `system` on IR.
 - **`tool`/`function` role**: each tool message emits one `role=tool` message in the rendered Chat body. Tool results are split from user messages.
 - **`file` content part**: degraded to `"[File attached: <name>]"` text placeholder.
@@ -71,24 +71,28 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Stop**: `stop` field accepts string or array. Arrays map to `stop_sequences`; single strings also map.
 
 ### OpenAI Responses codec
+
 - **Input items**: message, function_call, function_call_output, reasoning, compaction, item_reference.
 - **Output items**: message, function_call, reasoning, compaction.
 - **Reasoning**: `encrypted_content` + `id` round-trip via Anthropic signature. `summary` accepts concise/detailed/auto.
 - **Phase markers** (commentary/final_answer): preserved in `_raw`, emitted only when the source item had them.
 
 ### Pipeline
+
 - **Header forwarding**: `anthropic-beta`, `anthropic-version`, `x-claude-code-session-id` extracted from inbound request and forwarded to every upstream call.
-- **Model resolution**: `<provider_key>/<model_name>` split on first `/`. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved.
+- **Model resolution**: `<provider_key>/<model_name>` split on first `/` is the strict path and always wins. If the strict path doesn't match (no `/`, or unknown provider key), `_resolve_model` falls back to a two-tier shorthand search across every provider's static_models: tier 1 = exact `id` / `aliases` / `alias_pattern` (full-string regex); tier 2 = case-insensitive substring of `id` or any alias. Multiple matches in the same tier raise a 400 listing every `provider/model` candidate. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved (recurses into shorthand if the inner string has no `/`).
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
 - **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the upstream `httpx.stream` context.
 
 ### Streaming
+
 - **Ping injection**: when outbound format is anthropic, `wrap_with_ping()` emits a `ping` event if 15s pass without an upstream event. Uses a producer-task + queue pattern so the source generator is never cancelled mid-await.
 - **Chat stream**: text blocks emit `PartStartEvent(index=0, part_type="text")` before deltas. `reasoning_content` opens a reasoning block with PartStart. Tool calls get unique indices offset from the text block.
 - **Responses stream**: whitespace runaway guard — if >20 consecutive whitespace chars in tool-call argument deltas, emits an error event.
 - **`[DONE]`**: Chat and Responses stream renderers are defensive — they emit a terminal `[DONE]` even if `MessageStopEvent` was never received.
 
 ### Models endpoint
+
 - Static models: listed in config, emitted immediately.
 - `["*"]` auto-discover: queries upstream `/models` first, falls back to `/v1/models`. Results cached with per-provider `models_ttl_seconds`.
 - `display_name` from upstream is preserved when present.
@@ -96,7 +100,6 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Claude Code**: detected via `x-claude-code-session-id` header. Returns models with `claude-code/` prefix for non-Anthropic models so they appear in the picker.
 
 ## Config.json shape
-
 ```json
 {
   "host": "0.0.0.0",
@@ -110,7 +113,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
       "api_key": "sk-..." or "api_key_env": "ENV_VAR",
       "extra_headers": {},
       "timeout": {"connect": 30, "read": 600},
-      "models": [{"id": "model-name", "upstream_name": "...", "supports": {...}, "thinking_budget_default": 12288}],
+      "models": [{"id": "model-name", "upstream_name": "...", "aliases": ["..."], "alias_pattern": "^regex$", "supports": {...}, "thinking_budget_default": 12288}],
       "models_ttl_seconds": 300
     }
   }

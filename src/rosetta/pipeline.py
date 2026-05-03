@@ -16,6 +16,7 @@ Translation invariants:
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
@@ -26,7 +27,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from rosetta.codecs import anthropic as ac_codec
 from rosetta.codecs import openai_chat as oc_codec
 from rosetta.codecs import openai_responses as or_codec
-from rosetta.config import Config, ProviderConfig
+from rosetta.config import Config, ModelConfig, ProviderConfig
 from rosetta.errors import format_error, format_stream_error
 from rosetta.ir.request import CanonicalRequest
 from rosetta.ir.response import CanonicalResponse
@@ -100,24 +101,57 @@ _CLAUDE_CODE_GW_PREFIX = "claude-code/"
 
 
 def _resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, str]:
-    # Claude Code gateway prefix: strip and re-resolve the underlying provider/model.
+    # Claude Code gateway prefix: strip and re-resolve the underlying name (which may
+    # itself be either a provider/model pair or a bare shorthand).
     if model_id.startswith(_CLAUDE_CODE_GW_PREFIX):
-        inner = model_id[len(_CLAUDE_CODE_GW_PREFIX) :]
-        if "/" in inner:
-            return _resolve_model(inner, config)
-        raise ValueError(f"Model id '{model_id}' has gateway prefix but no provider/model")
-    if "/" not in model_id:
-        raise ValueError(f"Model id '{model_id}' must be in format '<provider>/<model>'")
-    provider_key, model_name = model_id.split("/", 1)
-    provider = config.providers.get(provider_key)
-    if provider is None:
-        raise ValueError(f"Unknown provider '{provider_key}'")
-    upstream_name = model_name
-    for m in provider.static_models:
-        if m.id == model_name:
-            upstream_name = m.effective_upstream_name
-            break
-    return provider, provider_key, upstream_name
+        return _resolve_model(model_id[len(_CLAUDE_CODE_GW_PREFIX) :], config)
+
+    # Strict path: explicit provider/model always wins.
+    if "/" in model_id:
+        provider_key, model_name = model_id.split("/", 1)
+        provider = config.providers.get(provider_key)
+        if provider is not None:
+            for m in provider.static_models:
+                if m.id == model_name:
+                    return provider, provider_key, m.effective_upstream_name
+            # Unknown model under a known provider: pass through (auto-discover providers
+            # rely on this so any upstream-listed model id resolves without static config).
+            return provider, provider_key, model_name
+        # Provider key didn't match — fall through to shorthand search so users can name
+        # an alias that contains a slash (rare, but cheap to support).
+
+    # Shorthand path: tier 1 = exact id/alias/regex, tier 2 = case-insensitive substring.
+    exact: list[tuple[str, ProviderConfig, ModelConfig]] = []
+    fuzzy: list[tuple[str, ProviderConfig, ModelConfig]] = []
+    needle = model_id.casefold()
+    for key, prov in config.providers.items():
+        for m in prov.static_models:
+            if m.id == model_id or model_id in m.aliases:
+                exact.append((key, prov, m))
+                continue
+            if m.alias_pattern is not None and re.fullmatch(m.alias_pattern, model_id):
+                exact.append((key, prov, m))
+                continue
+            haystacks = [m.id.casefold(), *(a.casefold() for a in m.aliases)]
+            if any(needle in h for h in haystacks):
+                fuzzy.append((key, prov, m))
+
+    matches = exact or fuzzy
+    if not matches:
+        raise ValueError(
+            f"Model id '{model_id}' did not match any provider/model, alias, "
+            f"alias_pattern, or substring of any configured model. "
+            f"Use '<provider>/<model>' or configure an alias."
+        )
+    if len(matches) > 1:
+        candidates = ", ".join(f"{k}/{m.id}" for k, _, m in matches)
+        tier = "exactly" if exact else "as a substring"
+        raise ValueError(
+            f"Model id '{model_id}' matches {tier} more than one configured model: "
+            f"{candidates}. Disambiguate by using one of those explicit ids."
+        )
+    key, prov, m = matches[0]
+    return prov, key, m.effective_upstream_name
 
 
 async def handle(

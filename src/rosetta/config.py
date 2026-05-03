@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -27,8 +28,21 @@ class Capabilities(BaseModel):
 class ModelConfig(BaseModel):
     id: str
     upstream_name: str | None = None
+    aliases: list[str] = Field(default_factory=list)
+    alias_pattern: str | None = None
     supports: Capabilities = Field(default_factory=Capabilities)
     thinking_budget_default: int = 12288
+
+    @model_validator(mode="after")
+    def _compile_alias_pattern(self) -> ModelConfig:
+        if self.alias_pattern is not None:
+            try:
+                re.compile(self.alias_pattern)
+            except re.error as e:
+                raise ValueError(
+                    f"Invalid alias_pattern for model '{self.id}': {e}"
+                ) from e
+        return self
 
     @property
     def effective_upstream_name(self) -> str:

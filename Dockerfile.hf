@@ -1,0 +1,10 @@
+# Configuring providers:
+#   Use api_key_env for each provider and add the matching secrets in
+#   Settings → Variables and secrets (ANTHROPIC_API_KEY, etc.).
+# =============================================================================
+
+FROM ghcr.io/lokesh-chimakurthi/rosetta-llm:main
+
+# Bake your config into the image. Remove this line and set the
+# ROSETTA_CONFIG env var in Space settings if you prefer not to commit it.
+COPY --chown=app:app config.json /app/config.json

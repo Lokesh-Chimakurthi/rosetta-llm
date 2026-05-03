@@ -1,0 +1,102 @@
+{
+  // =============================================================================
+  // Rosetta — Configuration
+  // =============================================================================
+  // Copy this file to ~/.rosetta-llm/config.json and remove comments.
+  // The proxy reads ~/.rosetta-llm/config.json by default.
+  // Override with --config flag or ROSETTA_CONFIG env var.
+  // =============================================================================
+
+  // Optional: bind address. Defaults to 0.0.0.0:7860
+  "host": "0.0.0.0",
+  "port": 7860,
+
+  // Optional: bearer-token auth on the proxy itself.
+  // If omitted or empty array, all incoming requests are accepted.
+  "proxy": {
+    "api_keys": ["sk-proxy-XXXX"]
+  },
+
+  // Logging: "debug" | "info" | "warning" | "error"
+  "log_level": "info",
+
+  // =============================================================================
+  // Provider definitions. Keys are the prefix used in model ids.
+  // Model id format: <provider_key>/<model_name>
+  // =============================================================================
+  "providers": {
+    // ---------------------------------------------------------------------------
+    // Example: OpenAI Chat-format provider (e.g., DeepSeek, Groq, OpenRouter)
+    // ---------------------------------------------------------------------------
+    "abc": {
+      // The native API format this provider speaks.
+      // One of: "openai_chat" | "openai_responses" | "anthropic"
+      "format": "openai_chat",
+
+      // Upstream base URL. The proxy appends the format's standard path:
+      //   openai_chat:     <base_url>/chat/completions
+      //   openai_responses: <base_url>/responses
+      //   anthropic:       <base_url>/messages
+      "base_url": "https://api.abc.com/v1",
+
+      // API key. Choose ONE:
+      "api_key": "sk-...",
+      // "api_key_env": "ABC_API_KEY",
+
+      // Optional headers merged into every upstream request
+      "extra_headers": {
+        "X-Custom": "value"
+      },
+
+      // Connection timeouts (seconds). Defaults to 30 connect / 600 read.
+      "timeout": { "connect": 30, "read": 600 },
+
+      // Models. Either an explicit list OR ["*"] to auto-discover via upstream /v1/models.
+      // Auto-discover caches results for models_ttl_seconds (default 300).
+      "models": [
+        {
+          "id": "kimi-k2.5",
+          // Optional: remap model name sent upstream (default = id)
+          "upstream_name": "moonshotai/kimi-k2.5",
+          // Optional capabilities. Permissive default if omitted.
+          "supports": {
+            "tools": true,
+            "vision": false,
+            "thinking": true,
+            "structured_output": true
+          },
+          // Optional default reasoning budget when target uses budget instead of effort
+          "thinking_budget_default": 12288
+        }
+      ],
+      "models_ttl_seconds": 300
+    },
+
+    // ---------------------------------------------------------------------------
+    // Example: Anthropic provider
+    // ---------------------------------------------------------------------------
+    "anthropic": {
+      "format": "anthropic",
+      "base_url": "https://api.anthropic.com/v1",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "extra_headers": {
+        "anthropic-version": "2023-06-01"
+      },
+      // Auto-discover all models from upstream
+      "models": ["*"]
+    },
+
+    // ---------------------------------------------------------------------------
+    // Example: OpenAI Responses-format provider
+    // ---------------------------------------------------------------------------
+    "openai": {
+      "format": "openai_responses",
+      "base_url": "https://api.openai.com/v1",
+      "api_key_env": "OPENAI_API_KEY",
+      "models": [
+        { "id": "gpt-5.4" },
+        { "id": "gpt-5.5" }
+      ]
+    }
+  }
+}

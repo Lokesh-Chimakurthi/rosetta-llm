@@ -1,0 +1,59 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  preflight:
+    name: Check version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      needs_publish: ${{ steps.check.outputs.needs_publish }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: false
+
+      - name: Check if version exists on PyPI
+        id: check
+        run: |
+          VERSION=$(uv run python -c "
+          import tomllib
+          with open('pyproject.toml', 'rb') as f:
+              print(tomllib.load(f)['project']['version'])
+          ")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          HTTP_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/rosetta-llm/$VERSION/json")
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "rosetta-llm $VERSION already exists on PyPI. Skipping publish."
+            echo "needs_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "rosetta-llm $VERSION not on PyPI. Will publish."
+            echo "needs_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish to PyPI
+    needs: preflight
+    if: needs.preflight.outputs.needs_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - run: uv build
+
+      - run: uv publish --trusted-publishing always

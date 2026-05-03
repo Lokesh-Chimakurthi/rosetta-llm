@@ -39,6 +39,13 @@ def main() -> None:
         help="Bind port (overrides config)",
     )
     parser.add_argument(
+        "--log-level",
+        "-l",
+        choices=["debug", "info", "warning", "error"],
+        default=None,
+        help="Override config.log_level (default: from config.json)",
+    )
+    parser.add_argument(
         "--proxy-headers",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -53,6 +60,8 @@ def main() -> None:
     args = parser.parse_args()
 
     config = load_config(args.config)
+    if args.log_level is not None:
+        config.log_level = args.log_level
     setup_logging(config.log_level)
 
     if args.host is not None:

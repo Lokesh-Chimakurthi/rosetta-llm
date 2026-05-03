@@ -100,7 +100,12 @@ def _forwarded_headers(request: Request) -> dict[str, str]:
 _CLAUDE_CODE_GW_PREFIX = "claude-code/"
 
 
-def _resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, str]:
+def _resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, str, str]:
+    """Resolve `model_id` to (provider, provider_key, upstream_name, match_tier).
+
+    `match_tier` is one of: "strict", "strict_passthrough", "exact_id",
+    "alias", "regex", "substring". Used for diagnostic logging.
+    """
     # Claude Code gateway prefix: strip and re-resolve the underlying name (which may
     # itself be either a provider/model pair or a bare shorthand).
     if model_id.startswith(_CLAUDE_CODE_GW_PREFIX):
@@ -113,28 +118,31 @@ def _resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, 
         if provider is not None:
             for m in provider.static_models:
                 if m.id == model_name:
-                    return provider, provider_key, m.effective_upstream_name
+                    return provider, provider_key, m.effective_upstream_name, "strict"
             # Unknown model under a known provider: pass through (auto-discover providers
             # rely on this so any upstream-listed model id resolves without static config).
-            return provider, provider_key, model_name
+            return provider, provider_key, model_name, "strict_passthrough"
         # Provider key didn't match — fall through to shorthand search so users can name
         # an alias that contains a slash (rare, but cheap to support).
 
     # Shorthand path: tier 1 = exact id/alias/regex, tier 2 = case-insensitive substring.
-    exact: list[tuple[str, ProviderConfig, ModelConfig]] = []
-    fuzzy: list[tuple[str, ProviderConfig, ModelConfig]] = []
+    exact: list[tuple[str, ProviderConfig, ModelConfig, str]] = []
+    fuzzy: list[tuple[str, ProviderConfig, ModelConfig, str]] = []
     needle = model_id.casefold()
     for key, prov in config.providers.items():
         for m in prov.static_models:
-            if m.id == model_id or model_id in m.aliases:
-                exact.append((key, prov, m))
+            if m.id == model_id:
+                exact.append((key, prov, m, "exact_id"))
+                continue
+            if model_id in m.aliases:
+                exact.append((key, prov, m, "alias"))
                 continue
             if m.alias_pattern is not None and re.fullmatch(m.alias_pattern, model_id):
-                exact.append((key, prov, m))
+                exact.append((key, prov, m, "regex"))
                 continue
             haystacks = [m.id.casefold(), *(a.casefold() for a in m.aliases)]
             if any(needle in h for h in haystacks):
-                fuzzy.append((key, prov, m))
+                fuzzy.append((key, prov, m, "substring"))
 
     matches = exact or fuzzy
     if not matches:
@@ -144,14 +152,14 @@ def _resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, 
             f"Use '<provider>/<model>' or configure an alias."
         )
     if len(matches) > 1:
-        candidates = ", ".join(f"{k}/{m.id}" for k, _, m in matches)
-        tier = "exactly" if exact else "as a substring"
+        candidates = ", ".join(f"{k}/{m.id}" for k, _, m, _ in matches)
+        tier_label = "exactly" if exact else "as a substring"
         raise ValueError(
-            f"Model id '{model_id}' matches {tier} more than one configured model: "
+            f"Model id '{model_id}' matches {tier_label} more than one configured model: "
             f"{candidates}. Disambiguate by using one of those explicit ids."
         )
-    key, prov, m = matches[0]
-    return prov, key, m.effective_upstream_name
+    key, prov, m, match_tier = matches[0]
+    return prov, key, m.effective_upstream_name, match_tier
 
 
 async def handle(
@@ -166,7 +174,7 @@ async def handle(
 
     model_id = payload.get("model", "")
     try:
-        provider, provider_key, upstream_name = _resolve_model(model_id, config)
+        provider, provider_key, upstream_name, match_tier = _resolve_model(model_id, config)
     except ValueError as e:
         return JSONResponse(
             content=format_error(inbound_format, 400, "invalid_request_error", str(e)),
@@ -174,6 +182,14 @@ async def handle(
         )
 
     bind_request_context(provider=provider_key, model=model_id, format=provider.format)
+    log.debug(
+        "model_resolved",
+        inbound_model=model_id,
+        provider=provider_key,
+        upstream_model=upstream_name,
+        provider_format=provider.format,
+        match_tier=match_tier,
+    )
 
     # Copy and rewrite the model field without mutating the caller's dict.
     upstream_body = {**payload, "model": upstream_name}
@@ -184,6 +200,7 @@ async def handle(
 
     if inbound_format == provider.format:
         return await _passthrough(
+            provider,
             provider_key,
             upstream_path,
             upstream_body,
@@ -198,9 +215,9 @@ async def handle(
 
     return await _translate(
         inbound_format,
-        provider.format,
-        upstream_body,
+        provider,
         provider_key,
+        upstream_body,
         upstream_path,
         is_stream,
         request,
@@ -211,7 +228,56 @@ async def handle(
     )
 
 
+def _safe_json(text: str) -> Any:
+    try:
+        import json
+
+        return json.loads(text)
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _log_upstream_status(
+    log: Any,
+    provider_key: str,
+    provider: ProviderConfig,
+    status_code: int,
+    body_text: str,
+) -> None:
+    """Emit a structured non-success record. INFO summary, DEBUG full body."""
+    summary = _extract_error_message(_safe_json(body_text)) if body_text else ""
+    fields: dict[str, Any] = {
+        "provider": provider_key,
+        "status": status_code,
+        "summary": summary,
+    }
+    event = "upstream_status"
+    if status_code == 401:
+        event = "upstream_auth_failed"
+        fields.update(provider.auth_source)
+    severity = log.warning if status_code < 500 else log.error
+    severity(event, **fields)
+    if body_text:
+        log.debug("upstream_body", provider=provider_key, body=body_text[:2048])
+
+
+def _log_stream_status_error(
+    log: Any,
+    provider_key: str,
+    provider: ProviderConfig,
+    e: httpx.HTTPError,
+) -> None:
+    """For streaming exceptions: log the underlying HTTPStatusError specially
+    when it carries a 401, otherwise fall through to the generic line."""
+    status = getattr(getattr(e, "response", None), "status_code", None)
+    if status == 401:
+        _log_upstream_status(log, provider_key, provider, status, str(e))
+    else:
+        log.error("stream_upstream_error", error=str(e))
+
+
 async def _passthrough(
+    provider: ProviderConfig,
     provider_key: str,
     upstream_path: str,
     body: dict[str, Any],
@@ -228,7 +294,7 @@ async def _passthrough(
         gen = upstream.stream(provider_key, upstream_path, body, extra_headers=fwd_headers)
         return StreamingResponse(
             _passthrough_stream_with_recovery(
-                gen, request, provider_key, inbound_format, status_dict
+                gen, request, provider, provider_key, inbound_format, status_dict
             ),
             media_type="text/event-stream",
             headers=_STREAM_HEADERS,
@@ -245,6 +311,8 @@ async def _passthrough(
             content=format_error(inbound_format, 502, "upstream_error", str(e)),
             status_code=502,
         )
+    if not resp.is_success:
+        _log_upstream_status(log, provider_key, provider, resp.status_code, resp.text)
     return Response(
         content=resp.content,
         status_code=resp.status_code,
@@ -255,6 +323,7 @@ async def _passthrough(
 async def _passthrough_stream_with_recovery(
     gen: AsyncIterator[bytes],
     request: Request,
+    provider: ProviderConfig,
     provider_key: str,
     inbound_format: str,
     status_dict: dict[str, Any],
@@ -267,16 +336,16 @@ async def _passthrough_stream_with_recovery(
             yield chunk
         record_provider_status(status_dict, provider_key, ok=True)
     except httpx.HTTPError as e:
-        log.error("stream_upstream_error", error=str(e))
+        _log_stream_status_error(log, provider_key, provider, e)
         record_provider_status(status_dict, provider_key, ok=False)
         yield format_stream_error(inbound_format, "upstream_error", str(e))
 
 
 async def _translate(
     inbound_format: str,
-    provider_format: str,
-    payload: dict[str, Any],
+    provider: ProviderConfig,
     provider_key: str,
+    payload: dict[str, Any],
     upstream_path: str,
     is_stream: bool,
     request: Request,
@@ -285,6 +354,7 @@ async def _translate(
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
 ) -> Response:
+    provider_format = provider.format
     log.info(
         "translate", inbound=inbound_format, provider_format=provider_format, stream=is_stream
     )
@@ -305,6 +375,7 @@ async def _translate(
                 inbound_format,
                 provider_format,
                 upstream_body,
+                provider,
                 provider_key,
                 upstream_path,
                 request,
@@ -329,6 +400,7 @@ async def _translate(
         )
 
     if not resp.is_success:
+        _log_upstream_status(log, provider_key, provider, resp.status_code, resp.text)
         record_provider_status(status_dict, provider_key, ok=False)
         try:
             upstream_err = resp.json()
@@ -362,6 +434,7 @@ async def _translate_stream(
     inbound_format: str,
     provider_format: str,
     payload: dict[str, Any],
+    provider: ProviderConfig,
     provider_key: str,
     upstream_path: str,
     request: Request,
@@ -385,7 +458,7 @@ async def _translate_stream(
             yield chunk
         record_provider_status(status_dict, provider_key, ok=True)
     except httpx.HTTPError as e:
-        log.error("stream_upstream_error", error=str(e))
+        _log_stream_status_error(log, provider_key, provider, e)
         record_provider_status(status_dict, provider_key, ok=False)
         yield format_stream_error(inbound_format, "upstream_error", str(e))
     except Exception as e:  # noqa: BLE001

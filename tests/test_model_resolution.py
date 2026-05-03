@@ -31,14 +31,14 @@ def test_strict_provider_model_still_wins() -> None:
             },
         }
     )
-    _, key, upstream = _resolve_model("anth/claude-haiku-4-5", cfg)
+    _, key, upstream, _ = _resolve_model("anth/claude-haiku-4-5", cfg)
     assert key == "anth"
     assert upstream == "claude-haiku-4-5"
 
 
 def test_strict_unknown_model_under_known_provider_passes_through() -> None:
     cfg = _cfg({"anth": {"models": [{"id": "claude-haiku-4-5"}]}})
-    _, key, upstream = _resolve_model("anth/some-other-model", cfg)
+    _, key, upstream, _ = _resolve_model("anth/some-other-model", cfg)
     assert key == "anth"
     assert upstream == "some-other-model"
 
@@ -50,7 +50,7 @@ def test_shorthand_exact_id_resolves_unique_provider() -> None:
             "openai": {"models": [{"id": "gpt-5"}]},
         }
     )
-    _, key, upstream = _resolve_model("claude-haiku-4-5", cfg)
+    _, key, upstream, _ = _resolve_model("claude-haiku-4-5", cfg)
     assert key == "anth"
     assert upstream == "claude-haiku-4-5"
 
@@ -69,7 +69,7 @@ def test_shorthand_alias_list_resolves() -> None:
             }
         }
     )
-    _, key, upstream = _resolve_model("claude-opus-4-7", cfg)
+    _, key, upstream, _ = _resolve_model("claude-opus-4-7", cfg)
     assert key == "openrouter"
     assert upstream == "anthropic/claude-opus-4.1"
 
@@ -88,7 +88,7 @@ def test_shorthand_regex_resolves() -> None:
             }
         }
     )
-    _, key, upstream = _resolve_model("claude-sonnet-4-5", cfg)
+    _, key, upstream, _ = _resolve_model("claude-sonnet-4-5", cfg)
     assert key == "openrouter"
     assert upstream == "anthropic/claude-sonnet-4.5"
 
@@ -104,7 +104,7 @@ def test_shorthand_substring_resolves_when_unique() -> None:
             }
         }
     )
-    _, key, upstream = _resolve_model("haiku", cfg)
+    _, key, upstream, _ = _resolve_model("haiku", cfg)
     assert key == "anth"
     assert upstream == "claude-haiku-4-5"
 
@@ -120,7 +120,7 @@ def test_shorthand_partial_substring_resolves() -> None:
             }
         }
     )
-    _, _, upstream = _resolve_model("claude-haiku", cfg)
+    _, _, upstream, _ = _resolve_model("claude-haiku", cfg)
     assert upstream == "claude-haiku-4-5"
 
 
@@ -137,7 +137,7 @@ def test_exact_match_wins_over_substring() -> None:
             }
         }
     )
-    _, _, upstream = _resolve_model("haiku", cfg)
+    _, _, upstream, _ = _resolve_model("haiku", cfg)
     assert upstream == "haiku"
 
 
@@ -186,14 +186,14 @@ def test_no_match_raises() -> None:
 
 def test_claude_code_prefix_with_bare_name_recurses_to_shorthand() -> None:
     cfg = _cfg({"anth": {"models": [{"id": "claude-haiku-4-5"}]}})
-    _, key, upstream = _resolve_model("claude-code/claude-haiku-4-5", cfg)
+    _, key, upstream, _ = _resolve_model("claude-code/claude-haiku-4-5", cfg)
     assert key == "anth"
     assert upstream == "claude-haiku-4-5"
 
 
 def test_claude_code_prefix_with_provider_pair_still_works() -> None:
     cfg = _cfg({"anth": {"models": [{"id": "claude-haiku-4-5"}]}})
-    _, key, upstream = _resolve_model("claude-code/anth/claude-haiku-4-5", cfg)
+    _, key, upstream, _ = _resolve_model("claude-code/anth/claude-haiku-4-5", cfg)
     assert key == "anth"
     assert upstream == "claude-haiku-4-5"
 
@@ -218,5 +218,5 @@ def test_upstream_name_used_when_alias_resolves() -> None:
             }
         }
     )
-    _, _, upstream = _resolve_model("claude-opus-4-7", cfg)
+    _, _, upstream, _ = _resolve_model("claude-opus-4-7", cfg)
     assert upstream == "anthropic/claude-opus-4.1:beta"

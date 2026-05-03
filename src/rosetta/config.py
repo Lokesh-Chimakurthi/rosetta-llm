@@ -11,7 +11,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -82,6 +82,25 @@ class ProviderConfig(BaseModel):
     @property
     def static_models(self) -> list[ModelConfig]:
         return [m for m in self.models if isinstance(m, ModelConfig)]
+
+    @property
+    def auth_source(self) -> dict[str, Any]:
+        """Diagnostic fields describing where this provider's API key came from.
+
+        Safe to splat into a log record — never includes the key value itself.
+        """
+        if self.api_key_env:
+            env_value = os.environ.get(self.api_key_env)
+            return {
+                "key_source": "api_key_env",
+                "env_var": self.api_key_env,
+                "env_set": env_value is not None,
+                "env_nonempty": bool(env_value),
+            }
+        return {
+            "key_source": "api_key",
+            "key_nonempty": bool(self.api_key),
+        }
 
 
 class ProxyConfig(BaseModel):

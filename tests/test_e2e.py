@@ -194,6 +194,79 @@ def test_auth_required_when_configured() -> None:
         assert r.status_code != 401
 
 
+def test_upstream_auth_failed_logged_with_source(
+    client: TestClient, log_records: list[dict[str, object]]
+) -> None:
+    """A 401 from upstream emits an upstream_auth_failed record carrying the
+    auth source diagnostic (env var name + presence flags), without leaking the key."""
+    with respx.mock(base_url="https://upstream.test/v1") as mock:
+        mock.post("/chat/completions").mock(
+            return_value=httpx.Response(401, json={"error": {"message": "Invalid API key"}}),
+        )
+        r = client.post(
+            "/v1/chat/completions",
+            json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
+        )
+    assert r.status_code == 401
+    auth_records = [r for r in log_records if r.get("event") == "upstream_auth_failed"]
+    assert auth_records, f"expected upstream_auth_failed, got events: {[r.get('event') for r in log_records]}"
+    rec = auth_records[0]
+    assert rec["status"] == 401
+    assert rec["provider"] == "abc"
+    assert rec["key_source"] == "api_key_env"
+    assert rec["env_var"] == "UP_KEY"
+    assert rec["env_set"] is True
+    assert rec["env_nonempty"] is True
+    assert rec["summary"] == "Invalid API key"
+    # The key value itself must never appear in the record.
+    assert "sk-up" not in str(rec)
+
+
+def test_model_resolved_logged_at_debug(
+    client: TestClient, log_records: list[dict[str, object]]
+) -> None:
+    """At DEBUG level, every resolved request emits a model_resolved record
+    with the match_tier indicating how the lookup succeeded."""
+    upstream_resp = {
+        "id": "x",
+        "object": "chat.completion",
+        "model": "m1",
+        "choices": [
+            {"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
+    with respx.mock(base_url="https://upstream.test/v1") as mock:
+        mock.post("/chat/completions").mock(return_value=httpx.Response(200, json=upstream_resp))
+        client.post(
+            "/v1/chat/completions",
+            json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
+        )
+    resolved = [r for r in log_records if r.get("event") == "model_resolved"]
+    assert resolved, f"expected model_resolved, got: {[r.get('event') for r in log_records]}"
+    rec = resolved[0]
+    assert rec["inbound_model"] == "abc/m1"
+    assert rec["provider"] == "abc"
+    assert rec["upstream_model"] == "m1"
+    assert rec["match_tier"] == "strict"
+
+
+def test_upstream_body_logged_at_debug(
+    client: TestClient, log_records: list[dict[str, object]]
+) -> None:
+    """The full (truncated) upstream body is logged at DEBUG when status is non-success."""
+    body = {"error": {"message": "rate limited", "details": "retry after 30s"}}
+    with respx.mock(base_url="https://upstream.test/v1") as mock:
+        mock.post("/chat/completions").mock(return_value=httpx.Response(429, json=body))
+        client.post(
+            "/v1/chat/completions",
+            json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
+        )
+    body_records = [r for r in log_records if r.get("event") == "upstream_body"]
+    assert body_records, "expected upstream_body record at DEBUG"
+    assert "rate limited" in str(body_records[0]["body"])
+
+
 def test_chat_stream_passthrough(client: TestClient) -> None:
     upstream_sse = (
         b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{"role":"assistant"}}]}\n\n'

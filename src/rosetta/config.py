@@ -80,12 +80,20 @@ class Config(BaseModel):
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     log_level: Literal["debug", "info", "warning", "error"] = "info"
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
+    # Optional fallback provider for callers that send bare model names
+    # without a `<provider>/` prefix (e.g. OpenAI-style clients pointed at
+    # the bridge). When set, must be one of the keys in `providers`.
+    default_provider: str | None = None
 
     @model_validator(mode="after")
     def validate_providers(self) -> Config:
         for key, _prov in self.providers.items():
             if "/" in key:
                 raise ValueError(f"Provider key '{key}' must not contain '/'")
+        if self.default_provider is not None and self.default_provider not in self.providers:
+            raise ValueError(
+                f"default_provider '{self.default_provider}' is not declared in providers"
+            )
         return self
 
 

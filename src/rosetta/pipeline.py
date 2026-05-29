@@ -110,7 +110,10 @@ def _resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, 
         # Some clients (e.g. OpenAI Codex CLI) strip provider prefixes before
         # forwarding to the upstream they were configured against; in those
         # cases we let the operator nominate a default provider via config.
-        if config.default_provider is not None:
+        # An empty / missing model id is never routed: it must surface the
+        # clear "must be in format" error rather than forwarding model="" to
+        # the upstream provider.
+        if model_id and config.default_provider is not None:
             return _resolve_model(f"{config.default_provider}/{model_id}", config)
         raise ValueError(
             f"Model id '{model_id}' must be in format '<provider>/<model>' "

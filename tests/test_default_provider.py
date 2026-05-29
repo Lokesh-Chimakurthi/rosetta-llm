@@ -70,3 +70,11 @@ class TestDefaultProvider:
         config = _make_config(default_provider="anthropic")
         with pytest.raises(ValueError, match="has gateway prefix but no provider"):
             _resolve_model("claude-code/claude-haiku-4-5-20251001", config)
+
+    def test_empty_model_id_not_routed_even_with_default(self):
+        """An empty model id (the handle() default for a missing "model" field)
+        must raise the clear format error instead of being routed to
+        ``<default_provider>/`` and forwarding ``model=""`` upstream."""
+        config = _make_config(default_provider="anthropic")
+        with pytest.raises(ValueError, match="must be in format"):
+            _resolve_model("", config)

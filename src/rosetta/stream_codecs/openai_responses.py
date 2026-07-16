@@ -28,6 +28,10 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
     buffer = b""
     current_item_index = -1
     ws_counters: dict[int, int] = {}
+    started = False
+    stopped = False
+    started_parts: set[int] = set()
+    stopped_parts: set[int] = set()
 
     async for chunk in chunks:
         buffer += chunk
@@ -42,7 +46,9 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     continue
                 data_str = line[5:].lstrip()
                 if data_str == "[DONE]":
-                    yield MessageStopEvent()
+                    if not stopped:
+                        stopped = True
+                        yield MessageStopEvent()
                     continue
 
                 try:
@@ -53,12 +59,21 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                 evt_type = data.get("type", "")
 
                 if evt_type == "response.created":
+                    if started:
+                        continue
+                    started = True
+                    stopped = False
+                    started_parts.clear()
+                    stopped_parts.clear()
                     resp = data.get("response", {}) or {}
                     yield with_raw(MessageStartEvent(model=resp.get("model", "")), data)
 
                 elif evt_type == "response.output_item.added":
                     item = data.get("item", {}) or {}
                     current_item_index = data.get("output_index", 0)
+                    if current_item_index in started_parts:
+                        continue
+                    started_parts.add(current_item_index)
                     item_type = item.get("type", "")
                     if item_type == "message":
                         yield with_raw(
@@ -93,9 +108,10 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                         )
 
                 elif evt_type == "response.output_text.done":
-                    yield with_raw(
-                        PartStopEvent(index=data.get("output_index", current_item_index)), data
-                    )
+                    idx = data.get("output_index", current_item_index)
+                    if idx not in stopped_parts:
+                        stopped_parts.add(idx)
+                        yield with_raw(PartStopEvent(index=idx), data)
 
                 elif evt_type == "response.reasoning_summary_text.delta":
                     delta_text = data.get("delta", "")
@@ -110,9 +126,10 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                         )
 
                 elif evt_type == "response.reasoning_summary_text.done":
-                    yield with_raw(
-                        PartStopEvent(index=data.get("output_index", current_item_index)), data
-                    )
+                    idx = data.get("output_index", current_item_index)
+                    if idx not in stopped_parts:
+                        stopped_parts.add(idx)
+                        yield with_raw(PartStopEvent(index=idx), data)
 
                 elif evt_type == "response.function_call_arguments.delta":
                     idx = data.get("output_index", current_item_index)
@@ -140,9 +157,10 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     "response.function_call_arguments.done",
                     "response.output_item.done",
                 ):
-                    yield with_raw(
-                        PartStopEvent(index=data.get("output_index", current_item_index)), data
-                    )
+                    idx = data.get("output_index", current_item_index)
+                    if idx not in stopped_parts:
+                        stopped_parts.add(idx)
+                        yield with_raw(PartStopEvent(index=idx), data)
 
                 elif evt_type in ("response.completed", "response.incomplete"):
                     resp = data.get("response", {}) or {}
@@ -173,6 +191,9 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                         ),
                         data,
                     )
+                    if not stopped:
+                        stopped = True
+                        yield with_raw(MessageStopEvent(), data)
 
                 elif evt_type == "response.failed":
                     err = (data.get("response", {}) or {}).get("error", {}) or {}

@@ -6,7 +6,7 @@ Multi-format bidirectional LLM proxy. Translates between OpenAI Chat Completions
 
 ```bash
 uv sync                        # install deps + dev tools
-uv run pytest tests/ -q        # run tests (18)
+uv run pytest tests/ -q        # run tests (44)
 uv run ruff check src/ tests/  # lint
 uv run ruff format src/ tests/ # format
 uv run mypy src/rosetta        # type-check (strict mode)
@@ -62,6 +62,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **thinking.type**: parsed as `reasoning.thinking_type` (enabled/adaptive/disabled). Rendered back as `thinking: {type, budget_tokens}`.
 - **cache_control**: preserved in `_raw` on every content block. Rendered back when present.
 - **Tool extras**: `defer_loading`, `type`, `cache_control` from tool `_raw` are merged into rendered tool definitions.
+- **Tool search**: `server_tool_use` + `tool_search_tool_result` blocks parse into `ServerToolUsePart` / `ToolSearchResultPart` and render back. A bare `tool_reference` name resolves against the request's `tools[]` catalog at parse time. Search tool entries render verbatim from `_raw`, never with an injected `input_schema`.
 
 ### OpenAI Chat codec
 - **System/developer roles**: extracted from message list, concatenated with `\n\n`, stored as `system` on IR.
@@ -75,12 +76,13 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Output items**: message, function_call, reasoning, compaction.
 - **Reasoning**: `encrypted_content` + `id` round-trip via Anthropic signature. `summary` accepts concise/detailed/auto.
 - **Phase markers** (commentary/final_answer): preserved in `_raw`, emitted only when the source item had them.
+- **Tool search**: `tool_search_call` / `tool_search_output` items map to/from the anthropic search blocks, paired through a synthesized `srvtoolu_` id when `call_id` is null (server execution). Client/BYOT execution has no anthropic equivalent and is refused at parse with a translation error, never silently converted. The search variant (regex/bm25) rides a proxy-specific `search_variant` field on rendered items; Responses has no variant field of its own. `defer_loading` on functions round-trips via the IR `deferred` flag; a `{"type":"tool_search","execution":"server"}` entry is synthesized when any tool is deferred and none is present. `arguments` is a JSON object on this wire; a JSON string is rejected by validation (loud 400).
 
 ### Pipeline
 - **Header forwarding**: `anthropic-beta`, `anthropic-version`, `x-claude-code-session-id` extracted from inbound request and forwarded to every upstream call.
 - **Model resolution**: `<provider_key>/<model_name>` split on first `/`. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved.
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
-- **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the upstream `httpx.stream` context.
+- **Cancellation**: starlette cancels the streaming generator on client disconnect (ASGI < 2.4 task-group branch), closing the upstream `httpx.stream` context.
 
 ### Streaming
 - **Ping injection**: when outbound format is anthropic, `wrap_with_ping()` emits a `ping` event if 15s pass without an upstream event. Uses a producer-task + queue pattern so the source generator is never cancelled mid-await.
@@ -125,4 +127,4 @@ Model id format: `<provider_key>/<model_name>` (e.g., `anthropic/claude-opus-4-7
 - `tests/codecs/test_roundtrip.py` — codec property tests: Anthropic round-trip, tool-use input as object, tool-result ordering, Chat→Anthropic tool-call ID preservation, reasoning lossless round-trip (encrypted_content+id via signature), response round-trip, unknown-param passthrough, max_tokens synthesis, streaming partial-JSON buffering.
 - `tests/test_e2e.py` — FastAPI TestClient + respx: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough.
 
-Run with: `uv run pytest tests/ -q` (18 tests, ~0.5s).
+Run with: `uv run pytest tests/ -q` (44 tests, ~0.5s).

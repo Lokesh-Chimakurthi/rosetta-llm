@@ -45,6 +45,19 @@ class ToolResultPart(_IRBase):
     is_error: bool = False
 
 
+class ServerToolUsePart(_IRBase):
+    type: Literal["server_tool_use"] = "server_tool_use"
+    call_id: str = ""
+    name: str = ""
+    input: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolSearchResultPart(_IRBase):
+    type: Literal["tool_search_result"] = "tool_search_result"
+    call_id: str = ""
+    tools: list[Tool] = Field(default_factory=list)
+
+
 class ReasoningPart(_IRBase):
     type: Literal["reasoning"] = "reasoning"
     visibility: Literal["visible", "redacted"] = "visible"
@@ -67,6 +80,8 @@ ContentPart = Annotated[
     | DocumentPart
     | ToolCallPart
     | ToolResultPart
+    | ServerToolUsePart
+    | ToolSearchResultPart
     | ReasoningPart
     | RefusalPart,
     Field(discriminator="type"),
@@ -83,8 +98,12 @@ class Tool(_IRBase):
     name: str
     description: str = ""
     input_schema: dict[str, Any] = Field(default_factory=dict)
-    kind: Literal["function", "hosted"] = "function"
+    kind: Literal["function", "hosted", "search"] = "function"
     strict: bool = False
+    # `defer_loading` on the wire: the tool definition stays out of the context
+    # window until the tool search loads it. There is no `deferred` flag on
+    # tool-call blocks; deferredness lives on the definition only.
+    deferred: bool = False
 
 
 class ReasoningConfig(BaseModel):
@@ -119,5 +138,6 @@ class CanonicalRequest(BaseModel):
 
 # Resolve forward references for recursive ToolResultPart.content_parts.
 ToolResultPart.model_rebuild()
+ToolSearchResultPart.model_rebuild()
 Message.model_rebuild()
 CanonicalRequest.model_rebuild()

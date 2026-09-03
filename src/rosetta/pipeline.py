@@ -11,7 +11,11 @@ Translation invariants:
   - Ping injection is added only when outbound format == anthropic.
   - Cancellation: a client disconnect aborts the streaming generator,
     which exits the upstream `httpx.stream` context and closes the
-    connection.
+    connection. Starlette's StreamingResponse cancels the stream task
+    on `http.disconnect` (task-group branch for ASGI < 2.4 servers, the
+    branch uvicorn takes), so no periodic `is_disconnected()` poll:
+    under ASGI test transports it reports disconnected right after body
+    exhaustion, killing healthy streams.
 """
 
 from __future__ import annotations
@@ -155,7 +159,6 @@ async def handle(
             upstream_body,
             is_stream,
             inbound_format,
-            request,
             upstream,
             log,
             fwd_headers,
@@ -169,7 +172,6 @@ async def handle(
         provider_key,
         upstream_path,
         is_stream,
-        request,
         upstream,
         log,
         fwd_headers,
@@ -183,7 +185,6 @@ async def _passthrough(
     body: dict[str, Any],
     is_stream: bool,
     inbound_format: str,
-    request: Request,
     upstream: UpstreamClient,
     log: Any,
     fwd_headers: dict[str, str],
@@ -193,9 +194,7 @@ async def _passthrough(
     if is_stream:
         gen = upstream.stream(provider_key, upstream_path, body, extra_headers=fwd_headers)
         return StreamingResponse(
-            _passthrough_stream_with_recovery(
-                gen, request, provider_key, inbound_format, status_dict
-            ),
+            _passthrough_stream_with_recovery(gen, provider_key, inbound_format, status_dict),
             media_type="text/event-stream",
             headers=_STREAM_HEADERS,
         )
@@ -220,7 +219,6 @@ async def _passthrough(
 
 async def _passthrough_stream_with_recovery(
     gen: AsyncIterator[bytes],
-    request: Request,
     provider_key: str,
     inbound_format: str,
     status_dict: dict[str, Any],
@@ -228,8 +226,6 @@ async def _passthrough_stream_with_recovery(
     log = get_logger()
     try:
         async for chunk in gen:
-            if await request.is_disconnected():
-                break
             yield chunk
         record_provider_status(status_dict, provider_key, ok=True)
     except httpx.HTTPError as e:
@@ -245,7 +241,6 @@ async def _translate(
     provider_key: str,
     upstream_path: str,
     is_stream: bool,
-    request: Request,
     upstream: UpstreamClient,
     log: Any,
     fwd_headers: dict[str, str],
@@ -273,7 +268,6 @@ async def _translate(
                 upstream_body,
                 provider_key,
                 upstream_path,
-                request,
                 upstream,
                 fwd_headers,
                 status_dict,
@@ -330,7 +324,6 @@ async def _translate_stream(
     payload: dict[str, Any],
     provider_key: str,
     upstream_path: str,
-    request: Request,
     upstream: UpstreamClient,
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
@@ -346,8 +339,6 @@ async def _translate_stream(
         out_bytes = _STREAM_RENDER[inbound_format](ir_events)
 
         async for chunk in out_bytes:
-            if await request.is_disconnected():
-                break
             yield chunk
         record_provider_status(status_dict, provider_key, ok=True)
     except httpx.HTTPError as e:

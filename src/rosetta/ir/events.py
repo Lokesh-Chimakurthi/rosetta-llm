@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 
 from rosetta.ir.response import StopInfo, Usage
 
@@ -21,6 +21,10 @@ class PartStartEvent(BaseModel):
     part_type: str = ""
     call_id: str | None = None
     name: str | None = None
+    # Search blocks carry their full wire payload at start (anthropic
+    # content_block_start / openai output_item.done): `{"input": ...}` for
+    # server_tool_use, `{"tool_references": [...]}` for search results.
+    payload: dict[str, Any] = Field(default_factory=dict)
     _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
 
 

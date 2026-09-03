@@ -22,13 +22,21 @@ from rosetta.ir.request import (
     ReasoningPart,
     RefusalPart,
     SamplingConfig,
+    ServerToolUsePart,
     TextPart,
     Tool,
     ToolCallPart,
     ToolResultPart,
+    ToolSearchResultPart,
 )
 from rosetta.ir.response import CanonicalResponse, StopInfo, Usage
 from rosetta.stop_reasons import ANTHROPIC_STOP as _STOP_REASON_MAP
+
+_SEARCH_TOOL_NAMES = frozenset({"tool_search_tool_regex", "tool_search_tool_bm25"})
+_SYNTHESIZED_SEARCH_TOOL = {
+    "type": "tool_search_tool_regex_20251119",
+    "name": "tool_search_tool_regex",
+}
 
 _REQUEST_TOP_LEVEL_KEYS = frozenset(
     {
@@ -83,7 +91,9 @@ def _arguments_from_text(text: str) -> Any:
         return {"raw_arguments": text}
 
 
-def _parse_content_block(block: dict[str, Any]) -> ContentPart:
+def _parse_content_block(
+    block: dict[str, Any], tool_catalog: dict[str, Tool] | None = None
+) -> ContentPart:
     block_type = block.get("type", "")
     if block_type == "text":
         return with_raw(TextPart(text=block.get("text", "")), block)
@@ -131,6 +141,52 @@ def _parse_content_block(block: dict[str, Any]) -> ContentPart:
                 is_error=bool(block.get("is_error", False)),
             ),
             block,
+        )
+    if block_type == "server_tool_use":
+        name = block.get("name", "")
+        if name in _SEARCH_TOOL_NAMES:
+            return with_raw(
+                ServerToolUsePart(
+                    call_id=block.get("id", ""),
+                    name=name,
+                    input=block.get("input") or {},
+                ),
+                block,
+            )
+        return with_raw(TextPart(text=str(block)), block)
+    if block_type == "tool_search_tool_result":
+        content = block.get("content") or {}
+        references = content.get("tool_references") or []
+        tools: list[Tool] = []
+        for ref in references:
+            if not isinstance(ref, dict):
+                continue
+            name = ref.get("tool_name", "")
+            catalog_tool = tool_catalog.get(name) if tool_catalog else None
+            if catalog_tool is not None:
+                tools.append(
+                    with_raw(
+                        Tool(
+                            name=catalog_tool.name,
+                            description=catalog_tool.description,
+                            input_schema=catalog_tool.input_schema,
+                            kind=catalog_tool.kind,
+                            strict=catalog_tool.strict,
+                            deferred=catalog_tool.deferred,
+                        ),
+                        catalog_tool._raw,
+                    )
+                )
+            else:
+                tools.append(
+                    Tool(
+                        name=name,
+                        description=ref.get("description", ""),
+                        input_schema=ref.get("input_schema") or ref.get("parameters") or {},
+                    )
+                )
+        return with_raw(
+            ToolSearchResultPart(call_id=block.get("tool_use_id", ""), tools=tools), block
         )
     if block_type == "thinking":
         signature = block.get("signature", "")
@@ -212,6 +268,32 @@ def _render_content_part(part: ContentPart) -> dict[str, Any]:
         if part.is_error:
             block["is_error"] = True
         return block
+    if isinstance(part, ServerToolUsePart):
+        # client-executed search is refused at Responses parse time, so every
+        # ServerToolUsePart here is server-executed.
+        block = {
+            "type": "server_tool_use",
+            "id": part.call_id,
+            "name": part.name,
+            "input": part.input,
+        }
+        if cc:
+            block["cache_control"] = cc
+        return block
+    if isinstance(part, ToolSearchResultPart):
+        block = {
+            "type": "tool_search_tool_result",
+            "tool_use_id": part.call_id,
+            "content": {
+                "type": "tool_search_tool_search_result",
+                "tool_references": [
+                    {"type": "tool_reference", "tool_name": t.name} for t in part.tools
+                ],
+            },
+        }
+        if cc:
+            block["cache_control"] = cc
+        return block
     if isinstance(part, ReasoningPart):
         if part.visibility == "redacted":
             return {"type": "redacted_thinking", "data": part.signature}
@@ -226,6 +308,22 @@ def _render_content_part(part: ContentPart) -> dict[str, Any]:
 
 
 def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
+    tools = [
+        with_raw(
+            Tool(
+                name=t.get("name", ""),
+                description=t.get("description", ""),
+                input_schema=t.get("input_schema", {}),
+                kind="search" if t.get("type", "").startswith("tool_search_tool_") else "function",
+                deferred=bool(t.get("defer_loading", False)),
+            ),
+            t,
+        )
+        for t in payload.get("tools", [])
+        if isinstance(t, dict)
+    ]
+    tool_catalog = {t.name: t for t in tools}
+
     messages: list[Message] = []
     for msg in payload.get("messages", []):
         role = msg.get("role", "user")
@@ -238,7 +336,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         elif isinstance(content, list):
             for block in content:
                 if isinstance(block, dict):
-                    parts.append(_parse_content_block(block))
+                    parts.append(_parse_content_block(block, tool_catalog))
         messages.append(with_raw(Message(role=role, parts=parts), msg))
 
     system_raw = payload.get("system")
@@ -252,19 +350,6 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         ]
     else:
         system = None
-
-    tools = [
-        with_raw(
-            Tool(
-                name=t.get("name", ""),
-                description=t.get("description", ""),
-                input_schema=t.get("input_schema", {}),
-            ),
-            t,
-        )
-        for t in payload.get("tools", [])
-        if isinstance(t, dict)
-    ]
 
     reasoning = ReasoningConfig()
     thinking = payload.get("thinking")
@@ -361,13 +446,29 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
     if ir.tools:
         body["tools"] = []
         for t in ir.tools:
+            if t.kind == "search":
+                raw = t._raw if isinstance(t._raw, dict) else {}
+                if raw.get("execution") == "client":
+                    raise ValueError(
+                        "client-executed tool search has no anthropic equivalent; "
+                        "refusing to translate"
+                    )
+                if raw.get("type") and raw.get("name"):
+                    body["tools"].append(dict(raw))
+                else:
+                    body["tools"].append(dict(_SYNTHESIZED_SEARCH_TOOL))
+                continue
             tool_body: dict[str, Any] = {}
             if hasattr(t, "_raw") and isinstance(t._raw, dict):
                 tool_body.update(t._raw)
             tool_body["name"] = t.name
             tool_body["description"] = t.description
             tool_body["input_schema"] = t.input_schema or {"type": "object", "properties": {}}
+            if t.deferred:
+                tool_body["defer_loading"] = True
             body["tools"].append(tool_body)
+        if any(t.deferred for t in ir.tools) and not any(t.kind == "search" for t in ir.tools):
+            body["tools"].append(dict(_SYNTHESIZED_SEARCH_TOOL))
         body["tool_choice"] = _render_tool_choice(ir.tool_choice)
 
     if ir.sampling.temperature is not None:

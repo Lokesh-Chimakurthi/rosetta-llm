@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:c20fdd9497b280860153f8c7b61d69bec99971a79bafa66852c4fc8a69945c86",
+  "claims": [
+    {
+      "id": "claim_1d86456a6cb541dba5b367d834e67fa3",
+      "statement": "GET /v1/models serves one of three pre-rendered snapshot lists with no upstream I/O, refreshed at startup and every 300 seconds in the background.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/app.py#L24-L55",
+          "version": "repo-lines-v1:sha256:28dd102e9b4080552276355edc03556f09caec66e59de98963844b5e122e2225:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliODU2YTFhMjZmM2MyZmI4MGRiYzEwMWU3MGFmMDU2ODRlMTQ1NjVmZjc4YTg3YTllZjJhZWQwNDgwMTY4ZjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM1ZWQ4NmE1NjI0NjkzYTIzMGMzZmY2Mzg5MDFhMjAzNmI1MWY1Y2ZjYjM1ZGUwNzM5ZjRkYTc0ZTNmYjdmNTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRkODNiZWM0YTAzNDhmYTQ0MDIzMDI5ODE2NWRjMjMxOGQ0NDJkMDZhYjBiYmEzOTMzM2M3OWZkZGE1MmZiN2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcyZmFmMzIyMjhhMDJlZDliYmQ2YWVhYjZlM2FhNDA0MjYwZGQ5NmFjNDA0ODcxY2Q1MGNhYzdkODFlYTQ1YWQifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/models.py#L274-L289",
+          "version": "repo-lines-v1:sha256:088ad356ed56dcbb343eb865de0171573571c53ca95d0fbc123b94f5b5f1adc2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhOWQxZDNkOWUwN2M3NjVlZThkN2RiMThlZGYxNjk0MTVkMmJjMTUzNjdhYTc0YmM1YTEzYmJhNzUzM2MxMWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyZjhlYTI2Y2FkNGQ2ZjJkZmFlNDJlY2E5ZjIzYzE4YmZiMzI5Mjc1MGYyMjFmNDM0Y2M1NjFlYmE3MjllNDMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEyMWQ1ZTdiNzk4MjExMGJiZGQwZjVjOWU2Mzk0YWIwNzdjNzhkZjFkNTYyN2M0NjU1ODBkMGJkOWExN2M4NmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZmNWFkZjYzNDVlNTJmNWM3YmJhYTgwMjY0ZjBhZjA4NjJlZjNiNTRmZTczNTMxYTY4MGM2NDk1YzE5Njk4NDIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_fcef6929dd1d40dc9e71f98b2f16b672",
+      "statement": "Auto-discovery providers with models [\"*\"] are fetched at /models with fallback to /v1/models following has_more/last_id pagination, while static providers render from configuration.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/routes/models.py#L116-L124",
+          "version": "repo-lines-v1:sha256:20b95f3e5978ba0508e88c0e9b240afec63568572da88e37134cb4c40a425c13:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMTBlZGMwZjZjMTc4NWE4OGZjNjcwZTdkNWZlMGFhNWM4M2M2MTU5YTY2NjlhNDYzYjFlMTIzNTRhMmMyYzI2YyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZWU3Yzk1N2JjYjQ0ZmI2NzNjOThiMDA1MGE3NWQzODA4MmRiODFkOTE4ZGUzMTNhM2YwN2MxMjM1MzA2ZDdlYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTQ1M2FjY2E4ZGU0NmM5MmZlZmU5NTUzZTIwN2U4NTMwMDgyZTNlNDBjOWRhZWVkMzVmYzAwY2Q1M2ZiMmEzMyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzZhZTRkOTc0NDczZDA2ODEzZGVkZTNiMGQ3Y2RjMTNjMTI1ZGM4OTk3OWQ3ZTc5ZmM3ZmM5NDA0MmI1MTE4MiJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/models.py#L248-L271",
+          "version": "repo-lines-v1:sha256:fbe49d807f4d9aee4364665f807bd063bbabd97c0c5ba3b942f0c979a0a252bf:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlkZTRiNDUxMGUwMDkxM2U1ZWZiMDY0NDc4OTU4NGMyMzM1NTVkMjcyNWNiMTQ4ODU1NzVkNWYwZTA2MDBmZTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFhNjgzYTg3YzlkNWJkMDMzOTRjNjFmOWFkOTQ1NjE4N2MxYTI2ODIzNzQ1YTZmNmJkMWEzNzhmZjBhM2I0MjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJjMzU3Y2NiZDAyYzA4YjMyMDYyMWY0ZjI0N2JjODE5YTZlYTU3Y2U1NDU2M2YxM2U1OGYzODdjYTAwNjVjM2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUyZjM1OTA0N2M5YzY0OTA2MjYwYzE1NzgzZTdmNjM5ZDg5ZmQ0ZjVkNWE5ZjdlNGFmNzk2NTMxMWI0ZTM2YWEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_34c62794592e497d9d77e2d5eb66e2c9",
+      "statement": "Failed fetches for auto-discovery providers yield no entries while static providers fall back to configured models with synthesized display and token fields.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/routes/models.py#L177-L190",
+          "version": "repo-lines-v1:sha256:a6485f145565a0ddf687cace6225204cccde888f776f3c30c5400e6005525702:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1NzQxN2I2MWRiM2E4ZDBiOTIzMWI5MjA1ZjI3MDdmZmI3OWIwZGJkYzhhMjU4NzhiZWE5ZjQxZmNkMzYwZGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3ZjIzNDI0N2I3OThhOTE3ZjI4MmM5YWU4NjU2MWYxMTAwYmJhYWNhYWQ5MzdjOWYyY2VmOGUwNzdlYzA3NzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU5NDk5ZjU2NzE0YjY3YjE2NzA1YzFhMWE2YzRiYWM1ZTU4ZGMwYzJiZTg3MjgwMWNmOTNiYjJkNWY1ZGY3MDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk0MDllYTA5ZjdiNDk4MDkzNTAyZjY0OWMxZDNjNDI2MTEyNDEzYmQwMjkzYjM1NjUwODRkODczZjk0MDE0NzMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7960b49eb8c84cf39db8eb213d2f3639",
+      "statement": "Claude Code is detected via x-claude-code-session-id or claude-code/ user-agent prefix and receives Anthropic page shape with ids not already starting with claude or anthropic prefixed claude-code/ to bypass the picker filter.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/routes/models.py#L238-L245",
+          "version": "repo-lines-v1:sha256:3bab7c1c0b56bc1976c952256fdd76ec97b8afb4f59c5e70bf2ccecd1d854777:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjMwMDA3MTA3MGY2MzRiMGE0OTBlOWU5OWM4MjA5OTk0NTQ3NDgzNDU5MDY5MjU2OGM2ZTVlMjA3N2YyYWQxMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjk1ZmU1N2UwMTU5NmNlYTAwZGEwNzYxMDc4YmYwYjYzYzlhODY3NDIzYjk2NTM2MjQ2MTk5NTczNmUyZmNjZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjJkZGE2NTViZTJkNWQwNGJmNDY0YTJhOWFhNDYxOWNlYjY4MzJhNjk4NWI4MTZjODhiODNiNGM5MGI3YzczYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDg0YTY2ZGJhZWFlZDAzZGVjYzE3ZDc4ZWY5NzU0NzgwOTBkNTgzYzMzOTIyNDcxNWZmYzE1YWY3ZWE4OTFjZiJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/models.py#L307-L346",
+          "version": "repo-lines-v1:sha256:67bae2bf4fe5a773a51b282ad6efb71fb15278171ee45c4579db1343c7a5d263:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwYzA4ODI0NzMzNzg0NjNjZDdjNzJhMjQ2MWQyYzdmM2M2NmJhYzZlMzhhNDFmNzdhMTZhNjEzODBhZjA5ZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyYmUyZWNjMDlkMWI0MjI2M2NlOWRhNjcyZjgwMmVjYjI5MjQ1N2QxZDhiNzA0NTFmOGRiYTJmMGRmYTNjNmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA4MjY3NmM4ODhjMWE0ZDlmYTc3MmZjZGMzMDJmNzczYmM3MjkwZWViZmY5ZGEzNmEzOWY0NGMzMjExOTgzODUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMwZjViOThiYTQzYzcxZWE0ODMwOWUxNTg5YzU3ZmUwZmY4ZjQwMmEyYzBhZmI5NGFkYTc1MTUzNWQ3NzgzMDIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_45c9bfc136ef4bcaafa4728a7ec82dd1",
+      "statement": "Anthropic and Claude Code model responses paginate via after_id/before_id/limit with has_more/first_id/last_id while OpenAI responses return the full list, all cached with max-age 60.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/routes/models.py#L307-L382",
+          "version": "repo-lines-v1:sha256:99bdc04a7b87ba0114d3ef85bfc5934a7600ee9603d1b988e67be30516c10a54:eyJzZWxlY3RlZExpbmVDb3VudCI6NzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwYzA4ODI0NzMzNzg0NjNjZDdjNzJhMjQ2MWQyYzdmM2M2NmJhYzZlMzhhNDFmNzdhMTZhNjEzODBhZjA5ZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA4MjY3NmM4ODhjMWE0ZDlmYTc3MmZjZGMzMDJmNzczYmM3MjkwZWViZmY5ZGEzNmEzOWY0NGMzMjExOTgzODUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

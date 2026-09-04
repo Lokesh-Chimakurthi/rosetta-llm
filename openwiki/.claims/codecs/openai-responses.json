@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:5bf9a1de1f750ca2fe2a3d208eff6afc2bab9f49a0aa17e3ef82858bdb0410ab",
+  "claims": [
+    {
+      "id": "claim_927fbf609e5f461b9bfc080ac33adf16",
+      "statement": "Responses input items message, function_call, function_call_output, reasoning, compaction, and item_reference each map to distinct IR message shapes, with unknown item types skipped.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L84-L207",
+          "version": "repo-lines-v1:sha256:901eb54c9000b737a073a5f655607412c43a0a53536c2d872adedd5eae9cdf66:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3YzVlZmVmYzk0NjUwNjNkZGIwODVkNDFkMDQ5MTRhNDg1NThmOGZmYjU3ZTUxODU5OWQ3MWJjODlmZjdlNDRiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODk2MDBhNzNkMmUwMmYzNTJiOTBmZWYxZDhkNjM4MTFiYTRhOGVlMGMxYmVhYTdhZTQ2NThmMzZhYTJlMTk4IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4Y2M0YTdkMWNjNzk2YWJhM2U0NjcyMzMyN2Y1MTdlOWY4MTE5ODJkMjUwZjA3MDI5ODZlNGI1NzY0YWQ5NTg5IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxNWI1MTViMTQxNjFjNjA3OGQzOWYzYzA3OWNmZGQ2ZWU4NmQ2ZjY3Njg3OWZiM2FlZTNlNmEwYjhhNjBmNzdjIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_37a1e8b9185c4e22bfda26b11ec69c55",
+      "statement": "Reasoning items round-trip via Anthropic signature encoding and compaction items use a cm1#<encrypted>@<id> carrier prefix preserved in ReasoningPart.signature.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L181-L201",
+          "version": "repo-lines-v1:sha256:1f1f5a4119e2dd405bbc77c01d9346f65e1f8843c415e76449da14ab9b940b6c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlkZjVhZmE2NWUzYWRmY2ZlZTVlMGQ3M2QwZDIwNmZjNzFjNDcxNGU5ZTMzNWFkNDM2NWM1ZmZhMjg0OGM5MzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlOGVhNDc1YjFkYWU5M2EyNmJlMWUxNjc3NzAyZWZiZjcxYWI5MmUwMWIzOTY0N2E5NzY0YjEyNWYxZjI5ZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRiZTc4YjE3OTExM2VhYzhkYjFjZDVmYTcwYTNjY2FkZTQ4Y2Q4YmIyOTYwNTNkZjU3Y2QwOTdjZDEwMmZkZTYifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L322-L339",
+          "version": "repo-lines-v1:sha256:30d52fe2c6fc0d506e271ec9a6492670007241bc54dff6944cb171d37a7a2244:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjNWQxZGQ1N2I4ODM1ZmY1NDY4ZTJkODRhODU1YzdiZGIxNTI4NGIxY2U0YjAzNmMyYTFiN2VkNjFlMTUyYTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4OTZkM2NjMjJjYzZmYzhmYTM4NTU1OTRmODYwYzY4OWIzNTUwZTBjMzEyNmY0ZDA1ODMxMDAzNmNlNWY1ZmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE0NWI2ZGIxNTE4ODdlZTAwNjA4OWFkMjQ5MDc3NzQyODA1OWY3MWM4ZjI4ZWY4MjYzNmNlYWE3MTIyMzkzOTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0ZTY4ODk2NGMzNjk4YTMwMmJiMDYyZjExYTI3YzM0NzIyOGQ1MjNiZWJkOGNmNjQxYzM1YmE2OTRhNTNmODYifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L57-L81",
+          "version": "repo-lines-v1:sha256:db86ca2c5cfa61b1987288bf9ce912c8c548b47e5c2fd100c1d95ee8bccd9956:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFmNmM2YTQyNzdjOGE5NjY4NTlhY2U0YTQ3YTU5NDc1NDZmZGFhMjk2NmRjODkyNzMyOWRlMzY5NzYxMGIxZDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE5OGIwNjNkOWI0N2U2NTM3OTYyNTU3MmNjZTE5NzY2OWQ1NzY3ZTEyYzE4YmUwNzU2NTJiOGNkOTgxY2U4ZDUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2MDkzM2I5MGNmZGZkZDg1NGVmMGQwMGRkMTIyYzkwNzAyNDE0YTE3MjAxMmVlOTg1OTg1NmIwZWFlMDljYzUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b7efeaa014cb406c97e92bd60d740244",
+      "statement": "Top-level instructions maps to IR system and back, and include containing reasoning.encrypted_content maps to ReasoningConfig.include_encrypted and back.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L248-L272",
+          "version": "repo-lines-v1:sha256:f0ce4bbbb4c2980130411d129fd71f5f05cfc624d87f1d03d2b2ab2262357533:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3MDQ3MThmZWUwZmRlMjVhZjQwMTNlMTEzZjViMWUyMTNlN2M2OWUwN2FkOTMwY2EwMTIzYzg5NDIyMjQ1ZTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyMmE1MzA2NTRkNmRiNjM2NTIyNzY5ZGNmZmRmNGRjYWFhZDU1ZTM5ZWJlMGUyNzRmOTczNDlmYTc2MzRlYTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIyMjFmNTZkYTY5NzY4MzdmNTE4ZGU5MzdmMjQ0NTEzZWE5Y2JjZDgyMTA4MmVjNjAxZGI3ZGRhZDQ2NDM1NGQifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L278-L283",
+          "version": "repo-lines-v1:sha256:024610867a35441292665033d3627d41eb6d2233f0ffe715635402db02f394b5:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjM2MTViZWM4ZGQ5NTIwNmNlNGJhMGFhNGE3Nzg1MTBjMTk5ZTgxZmFiZmM1M2MzYTI3NWRhZGJkODMyODhlZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDIwNzEzZmUxN2ZjNzcyYmM5Yzk5N2ZkOTUyYTVlMzE4Y2Y0NDAzOTgzOWNkN2YxMmVjNjAzNGZmZWQ5NjE4NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTRjZmMyN2FiYTU1ZDIyNGFlZjcxYmM2ODEzNGU4N2NjNTNkZjUyZTQ3NmVhNGFiZTc5MmZmNzk4YWYyOTU2YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZmU1MTU0ZmJlZjU3NGUzZDZmOTdlYzU0YjY3YmIxNzYzOGRhYTU1OGExMjhjNTUwODcyYTg4MzM0ZDUxNTNmMyJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L391-L392",
+          "version": "repo-lines-v1:sha256:1482e724a808aae88f8ceb4ed50468bb56c91451108307d51b37c4b62d8c6eeb:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmNiZTI3MTcwYjMwZTg5NmI0OWEwODYxNzI1ZDgxYjA0NmFiMzcyNTExM2FlMWYyYzk5OTk1M2MwZDcyODQ1OCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMTQ3ZDRiNzE4NGVjYTVhNmQxYTE1Zjk4OWY1OWQzYThmYTkwMzQ4ZDg4MjMyYjgwYjNkYWZjZmZhNGI2N2VkYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjExM2I3MjQzZDU0MGEyNTUxMGRiODQ3MjVhZDg4MzAxOTdmMWU5ZmRlNGQ4MjNkYWI0NDAxYjU2Y2ZiYzUxNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYmQ5YWFlYzQ1ZDQ0NDNiOTYxYjI1YmU0NjhlMDI2MDFjMmM4NGU1NmM5ZWU0ODBlMDgxZTU0ZTEyZGI2M2Q4OCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_0f3219465177432a858817b8ee95e9ff",
+      "statement": "Rendering flushes accumulated message content before each tool_call, tool_result, and reasoning part so each becomes its own top-level input item in wire order.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L285-L362",
+          "version": "repo-lines-v1:sha256:91b4ccfed093bc32c3250efd35a67f13ab84f8c28ed6b80ce9eb16b4d63bba8b:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkYmQ5ZTNmZjFkMmEyNDhjYWZlMDVkNjY5YjJmNmQ3NGNhZWYyNjRmMTJkNWYyNjJmNDc2ZTZjN2E0ODFkYTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNGI1Y2I1ZTM0ZjQxMzVjMDY2YzlhMzlmNDQ4YjA4NWFlNzhjNzVmOGFmMzRlMDc1ZjY2NjU4ZjYyZmE2NjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc1MmM2YmMyMDhhOWY3NTlhYmE4OWFlZDFjYTc4NjE1ODhhZjM0MDM1MjhhZDgwMzQzNzg2MmIyYmVlZDFkYzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZlNGZiZDcxMmFhMDNjNDNmNmQ0ODQxMjU0NmYyY2QxMWZjMzExODc0YzcwZDQ3OGZhYzNmZGNmZDg5MTUyZjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c4c2ffd0a6c64e96bfb125b553383c58",
+      "statement": "Responses output status maps to normalized stop (completed with tool calls to tool_use, incomplete with max_output_tokens to max_tokens, failed to refusal) and back on render.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L492-L506",
+          "version": "repo-lines-v1:sha256:0540a77664754df6b2d298f91a6ec6f2cf9442f1a73918cbbc805ccb0bf0d347:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3OTA2YmUxYzVkZjA4ZjI1NWIwMWNjYmFhOGE1MGNjYjMxMTVhNzUwNjIzMTRlNDAzNzAwMDg1YWIxNmE0NDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZlNjNjZjNiMzNiMjRjYjk5MzBmMDNkYzY5NWE2ODk0OTUxZDY4YjVkMzZjZWJiYjgwOTlkN2Q0OGVmMWVmODQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNmE1ZjgyNjQ4MDFjZGQ5OTFkOTE0ZGY0NGM0ODViZGE0OGIzMTEzZjk4OTcwM2ZhMGZmODAwODA5NDA1NTciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFhOTFlMDBlMWE4OWEyYjE5ZGVjYjIwNWI4MDE4NDVhMDFlZWIyNzJmNTJkZTliZDY2NGE1N2ZiYmZhYzQwNTcifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_responses.py#L572-L584",
+          "version": "repo-lines-v1:sha256:f1a30e914ab753668e53f610537a8fc5495f85f267171f97b111d1cc4a3159c7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjZDYxNGY4MDJhYWIwNWM1ZjFmMzEzNWQxMjBmMzE2NzI1MmM3NWE4YTUxNDc3Y2FiN2UzMGY4ZTMwNWZjZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUzOGU3ODVkZTUzNGE1OTE0MTEwNWFiOWVjZDkxZmIxZGU1MzUxODM1NTY2OGUzZDBhOGZhNDY1ZDlmYTlmYmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA5ZGMxZThkMmRlN2I0NDJkNTczZTdhNWMzMzU0N2FjYzk4NTlhMzc1ODRlZGY0NzZjNTNkYzU0MTZkNzkxYmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiZjcxY2I0Y2NhYzUxMDUxOTBjMDM4NDBiYmUyZmI1MmE1YmM2MzYyMDc0MzZkOGFjNTJlMzc1OTMwNWM4NDAifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

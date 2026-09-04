@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:f15700146e9c58b9049f2d4742a781a4b9aae6ad17a685aac7685623daad0379",
+  "claims": [
+    {
+      "id": "claim_c9ea44a69e6145ae901b7ec1f4408c07",
+      "statement": "System and developer roles are extracted from the Chat message list, concatenated with \\n\\n, and stored as system on the IR instead of messages.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L184-L187",
+          "version": "repo-lines-v1:sha256:6d3eb0fd261d7cd265d5b0b0a4dc91b1aeef80fba8a21db1a3789ff18b3e12cf:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjQ3ZDM2YjA5ZDFkODcxNjAxNGYwZjg3NjYxNDk1YTM5MWFlYWRkZmE4NWM2ZmMzYjY2MGNlYmE2OWQ2YzQ3MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMWJjOGE1MDU5YjA0NmVkYTBmMmU0MTgzZWExNGQ2NTMwYWYzOTkwNTRlYjViYjdlMTk4MTFjNzQzNjE5ZWE3OCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDVkMzc1NTliYmI5MjI1YTE4MGM2YzZkYjYxNTJiN2ZhNmViMWU0ODNhY2NlZjkyMmNiZDg3ZWY2ZTUxM2VmYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZmY3YjRlYWQxZWMyYTJhZTNiODA4OWI0YjkzNDU2ZGUzNDNjMDZmYWY5Njg3NGNlZTY2MDA2ZTVjM2ZjZDFlYiJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L67-L84",
+          "version": "repo-lines-v1:sha256:2e548244a5224bb32496f0fea97cb81488df5cc2c130aa23ebaa224902323fe8:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc0OTRjOTQ1NzFjMzI5YTU2NzY1YjM0ZWNjMzkyNTUyYTA4NmEzYjQ0MDY3NzI1MjI3ZTJlNTc5NWU0OWQ5YTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2YWQwNTJjNDRiOTUzZjBkODMyODZhMmRkZGVjMjE4NWU3ZjE4OWRiMGU0ZjUwMmM2ZjA2ZjM0NzU4NDU0YTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4OWVmOTJmNjAwYTFkZGQ0YTY5MTc4ODQ1NjU4ZDgwMDZkYzJkMmU1YWUwMWQ5MjJjZDI5MTM0NTczMzU3MjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIyOTAwODg4YTk3MzE0YjgxODI2OTFkYWY5ZTBjZThhNDMyN2I4ZmQ1YTJjYWZjYjcyNmJhZmMyYWU0NWM1NDcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_95388586251d4963b5c5785338b64d94",
+      "statement": "Each tool/function-role message emits one role=tool IR message carrying a single ToolResultPart, and rendering splits bundled tool results back into one role=tool message per call.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L218-L230",
+          "version": "repo-lines-v1:sha256:5d570e3ff39c325c22cd7e9e6dd94b9e00d468c345c637a4fe83b4d2b6ab8f8b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBiOWY5MzQwNmIxMjMwZjZmMzkzNTUxMzgwYzUxYmFkY2Y2OTUyMjhiMjk5Yzk1MzE3MjQ0N2I3ZmEzNGZjYjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2YWQwNTJjNDRiOTUzZjBkODMyODZhMmRkZGVjMjE4NWU3ZjE4OWRiMGU0ZjUwMmM2ZjA2ZjM0NzU4NDU0YTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI1OGI2NDFhNjc4OTY3OWQwZGRjNzEyZWJmNzE5NjJmY2EzOTY5NTlmNTgyNDE2MGM4NjliZDcxYjhjYjE3MjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcwYTA5NWMyMTgzOTFhMjM5M2U0NWJkMDFjMTVhYWQ2N2Q5NmY0MTYyNzFhZmQwYWExMmI2MWY2MWRlMzc3MzQifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L88-L101",
+          "version": "repo-lines-v1:sha256:f6ea223efec6ac4dd5e950e4b5a6b79c90e20159b67f005e088c0c2daf6e4fda:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzYzU5NDdiNGRhY2Y1MzNjOGYxNjQ1YzllZTk3MzkzZDEzOThlNTA1NGU4Y2YyYzUwODgxZTg1ZWFiZmJhODAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2YWQwNTJjNDRiOTUzZjBkODMyODZhMmRkZGVjMjE4NWU3ZjE4OWRiMGU0ZjUwMmM2ZjA2ZjM0NzU4NDU0YTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIyOTAwODg4YTk3MzE0YjgxODI2OTFkYWY5ZTBjZThhNDMyN2I4ZmQ1YTJjYWZjYjcyNmJhZmMyYWU0NWM1NDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkxMTA4YTE2ZWM1MzliNTMxOGY3NWIxNjVkM2VmM2JmZDZhOWY3YTYyZGZkZmQyNWI2ZmFiZDgxN2VlOGViM2EifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f235472acc9249d49e66250c852cf580",
+      "statement": "File content parts degrade to a \"[File attached: <name>]\" text placeholder and input_audio degrades to a text placeholder because the IR has no native audio content type.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L59-L63",
+          "version": "repo-lines-v1:sha256:d2f79bf455115dc6a1dcb7ed2a86a147398d9e24180aa57ba191172e7578cc74:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMmM1MTBhMjliYzhkZTI5ODU3OThjZjNiYzQ0NjBmMGY4MzZlMTIzMjUyNjk3MWI2YzI4MzNhYzczZjYxNGM3MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNTZlZDBlMWUzODlkMDMwMzQ4YmRiYjMzNjBmNWY1YWIyNmE0MjZlMmQzOWMxMGY0NmFhNmUwZWI1MDliNjQ0YyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMGZmYmU3NmRjOWE2MDE4OTE5MjI2ZTEwNDMzYWRjOWIxMjIzMDAxZTliNGZhM2NkMTBmM2M1OThlOTU0MDZjMyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMTg5ZWY5MmY2MDBhMWRkZDRhNjkxNzg4NDU2NThkODAwNmRjMmQyZTVhZTAxZDkyMmNkMjkxMzQ1NzMzNTcyOSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_a873cc05a3624810bb5c4ad113e4f217",
+      "statement": "Chat stop accepts a string or string array into stop_sequences and renders back as a bare string for length one versus an array otherwise.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L174-L180",
+          "version": "repo-lines-v1:sha256:0a050f2c09297af3add11219f7b78f673bc5838eaf82829a468aa4bcd3d52874:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTk4Y2U2ZjdlM2IxOTUwZjZhZjQzODhmOWJhZDRlOTk4ODRjMzliYjY0ZWM3YTIyZWRjOTRhMjRmZmYyZGY0MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOGQzMmIzY2VkMWZkM2E0OGFiZGFjOTVlZjUxYmIzOTQ2YmEwZGRmYWZiMzQ1MThmMjJmNzdkYTEzYjM2ZDY0MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDRhMTcyMGE3YmE5MmQzNGFlY2UwZDdhMWY0OTg2ZjQ2MWJhNTgxN2YzNDVkMTMzOWU5NWUyMGM5ZDQ3MDBmOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDVkMzc1NTliYmI5MjI1YTE4MGM2YzZkYjYxNTJiN2ZhNmViMWU0ODNhY2NlZjkyMmNiZDg3ZWY2ZTUxM2VmYiJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L312-L313",
+          "version": "repo-lines-v1:sha256:0d58a70b780a84673bafb1410bd830337e18b6b6f3c89f60bc8c94f8d70947a2:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDVlMzQzMDkxNGQ2MGMyYTg0MzM1MjcyZDEyYzk0Yzk2MWViZDNkZDVlMjUwMmI4NGQzM2E2ZjFiZjlmNWRlYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjE4NmE2ODRmZTYzNTEyMjQ3YTY3NmFlMmI5NTU4OTc0MmY3OWY1YjExN2VjMmNiN2FiYmFlMmUxMWNkOTlmNyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGI3Mjc4ODI0YjlhNjQwMDQ2NTk1NTYzN2IyYTNjZGRmM2I5OGY4NzQ0NTAxY2QxMjIzZjk1ZThkYTllNTVjMCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjIzZjU1ZWEwZWM1ZWYwYTM3Y2ZjZGZmZjkxYzFlMjMwYTUwOWRjNTFkZDMxZTdkMDAxMjNhZWVkNTY5MWIyNSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_4d5ee3931f2c48c1b9e5da0a9b19b208",
+      "statement": "Chat finish_reason maps through OPENAI_CHAT_STOP_IN to normalized stop on parse and through OPENAI_CHAT_STOP_OUT on render.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L390-L400",
+          "version": "repo-lines-v1:sha256:fd5ef1af1ff08afbc4610c589d6d76d665a30cb143474d7a97a708c9540fca28:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjczN2U5NThmZWZjZTU4ODA3ZjM5OWZjYmRjYzZkZTE0ZDAzMTg2MGY2ZWY0ZjQ0M2MwN2FmOWRlMDBmN2UwMWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmY2JiOWNkM2NhYjhjMjVkNTZkMWQwYTBhMjg1MDVhMzBlNjQ4YzBlZTVjZjgyMTZmZWY0NDM5MTQyYjRhY2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY1ZTkwYjY2ZmNkZGY3MmE3ZjNkYTM0YjBkYWQzZmJhN2Q4NzkyMmUzNDJiYjFjZTdiNDgzMTk5ZjY3ODBhYzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQyNzYxNmQ3NDY2OTIwYTUzODExYjUyMTQ1MWVhMjJkMDkzMDk4ODY1Njg0ZWEzZTkwNjE3ZDRjNmQ0MTRiYmIifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L453-L458",
+          "version": "repo-lines-v1:sha256:9003cb602fdb612c0f2206b8659760d0cd07b5bfa6732ef7f941d9ed5efa00cd:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjFjZDM0MDg4MTdjM2E5NTBjMzk3Yjk0NDJkZDZkM2EwODRkMDVhMzc3MGMyMjYxODc2MmNjMjg1ZjBhYmRmOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNTUyMmM0MmNkMTljNmQwM2Q4MDhjNDUyNzIwNTUyODI1YjdlYTFjNWI0OTFiMjE4NTExY2FjNzQxNWNmOWQ5YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNmI1MGJmOWU5ZjhkNzYwYmU2NzExMDhkMTI5OWI4NDg1NWI1MzEyY2UyYjA2YmY1YWI5MzY1YWI1NDc4YWU3YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiN2JjNGZkNTUzNWZjYThiMGYyZDlkMWIzZTg2MmI3ZTA1NzVjNmJhNzliOGI5NDE3OTBjM2FlNmNjMmVjNjEwMSJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/stop_reasons.py#L13-L30",
+          "version": "repo-lines-v1:sha256:cf882dd0dea4c90b9ca3d9e6cec2168fda7a030916d4cb87d320f531fed9c085:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyMjgyMjM1YTA1YzAxNDIzZTdhYTdjYzJlN2U1ZjYyMDdiOTFlMDgxOGFhNTcwNTdjODA3MTMxNGM4OWYwOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUwMzFhZDlmZjZlYzVlYjkyYjFhOGM1OTZhNDMwYWNkMDFhYTU4NGFhOTQ1ZmVjMzU4M2Q0OTNjZjJhZjNmYTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_715e6f090d3b4a17a31d2a2050438ffd",
+      "statement": "Chat response rendering joins text parts into one string content, synthesizes a chatcmpl- id when missing, and carries system_fingerprint/service_tier/store through from _raw.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/openai_chat.py#L413-L494",
+          "version": "repo-lines-v1:sha256:b556b66e2fa76b58085541825b85a30d63e54f46ad0cb11c88f19ba03baa658f:eyJzZWxlY3RlZExpbmVDb3VudCI6ODIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIzNjczYjEwYjIyOTViYjViYmFlZGUwZmRlOGMyZmRlZTM4YjQ5ZTU5MGQ5ZDk3ZDdiODM4ZDAxNjI2YTQ2ZWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhMTFjMDU2N2QwYTVmOWU5YjEzNWY2NWNkMjUzNzJkZmQ2Mjg3NzVmN2MxZWQyNTNmOGJhZDQyZGQyZDY2NjkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhjYzRhN2QxY2M3OTZhYmEzZTQ2NzIzMzI3ZjUxN2U5ZjgxMTk4MmQyNTBmMDcwMjk4NmU0YjU3NjRhZDk1ODkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

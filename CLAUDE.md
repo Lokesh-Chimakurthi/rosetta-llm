@@ -126,3 +126,11 @@ Model id format: `<provider_key>/<model_name>` (e.g., `anthropic/claude-opus-4-7
 - `tests/test_e2e.py` — FastAPI TestClient + respx: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough.
 
 Run with: `uv run pytest tests/ -q` (18 tests, ~0.5s).
+
+<!-- OPENWIKI:START -->
+
+## OpenWiki
+
+See [AGENTS.md](AGENTS.md) for OpenWiki agent instructions.
+
+<!-- OPENWIKI:END -->

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:e47892ca7e2b1292205be7001dad1c0ab2f7628be9ddfa5529547931b8c9e8b4",
+  "claims": [
+    {
+      "id": "claim_ac128a90eb0844acb3afa466d3ab6a6e",
+      "statement": "Streaming translation chains upstream byte stream to provider stream-parse to optional Anthropic-only wrap_with_ping to inbound stream-render as lazy generators with per-chunk disconnect polling.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L327-L359",
+          "version": "repo-lines-v1:sha256:44de95f8a353b0d5745c01a01d1f9f29e4da3b238dab10810261d35da7af6ebb:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3ODk4YWQ3N2Y5OTYyMjc2NjVhM2JiZWJkZWY5YmJiZDkwZmNjODYzYzA4Y2FkNDVhYjM1ODA5Zjg4YWQwNDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjODU0M2EwYThhZWQ0MTg2N2EwMzU0ZGU3MWZkY2FmYjk5ZDZjZTkxODI4OTlmZWYzMmYzYjJhMGNmZmVkODkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBlYTgyM2U0ZmJlNmMyYzMzYjNjYTdmNzYwMTgyNTk3M2NhY2EwOWJlMDQ4MTE3YTkxMTM2YjFlMzMyNWRlMzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxOGIwOTg1ODRmMjJjZDk5ODg1ZGZhMGVkYTA1MDAzYWE5NTA3ZmUzMzIzZDU1ODBjOTQ0ZWRiYWNjYjFkYmQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b8a1b61815ad4a6d81f3cc545cd2abde",
+      "statement": "wrap_with_ping injects a synthetic PingEvent after 15 seconds of upstream silence via a producer-task plus queue pattern so the source generator is never cancelled mid-await.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/stream_codecs/anthropic.py#L255-L291",
+          "version": "repo-lines-v1:sha256:4ae3b9a03d12539168f41624cc136c917c728df66000c81dd2ab386526c08458:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhhNzFjN2U2ZGVkMjgwZDcyOTI0MWFjOTc4Zjk4Yjg1MjliN2I2ZGQ3ZDFhZmY3OGU2ZTdmMTU3YTI5MWEyZjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEwYzg2OGU1ODVlZDk2NTE5YTU3NmNlMDEyMmIzZDU0ZjEwZmU1MDUxNzk2NzM5MTA4NTBlMzcxNjg4NDA2ZGEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZhMjhmMzA0MGRmYmViNjhjYzk0NjA4NDdiODVkYjU5ZDNlMGFkNzA5Nzk5NzFhNzM0YzQ5NWEyMTBiOWViN2QiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ab2c98b2b7804af48925216497c085a9",
+      "statement": "Chat stream parsing offsets tool-call indices by one to avoid colliding with text block zero and accumulates partial arguments strings as json deltas.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/stream_codecs/openai_chat.py#L125-L151",
+          "version": "repo-lines-v1:sha256:634392d377fa0dfffdf9e5dd2ea56defadf86111bcc48eb3b6138822f6e72562:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlZjQ2NzM3MjE2NjQyNzBjZTZhNzJkOTU3MzBlNjc2YmZhYjQ2MWUyOTA4YWRiNzI2ZDJhNmZlNzI4OTU0NzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhZDZjOGVhYTg1M2RmYjcwNzIwNTFhNWY1OTYyOWJiNzZmMDJkMTMzMDQyZjY0MTQzNDNmYTAxOWFiOGU2ZDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYxZTk1YmQyZGZiNzJmNWZiNTYzNmNjNjQ1MDUxZWNmZmMyMDAzOTg5OWY1MDRiMzRkYjM1MDJhOWM0M2QzMTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYzZDAyYTk3Yzg3ZTEyMDk2ZGY5NWEyMGU4ODI1Yzc5OGFlOGQ5MDA4YjdhY2MxNzJjNjg4MTBiZjM2ODY2NjEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5b95ddaad36449a5ac18c19a5bf0949e",
+      "statement": "Responses streaming has a whitespace runaway guard emitting invalid_request_error after more than 20 consecutive whitespace characters in tool-call argument deltas.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/stream_codecs/openai_responses.py#L117-L137",
+          "version": "repo-lines-v1:sha256:06aee2e1e1563ac9660c4a237ec26b154a240d3678e7a474d6c96dff034d47f2:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhYzU5N2FkYTllMGZmMzkzZWQyYjk0MWE5M2Q4MWFhZTkyM2Q2ZjkyYWFhNmM3ZTc5YzI1Njg5OGZlMmRmNDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQwMDEwNWUwYTY4NTIxYzNkMzMyNjE1MzkwZTg1OWUzOWNmMjQxMjc0YTdkNzgxZDE5NmEzYWRhMDdiMTBmZDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRhYjY0MGJhMGMxMzA5ZTNmNmI1NWUzMmZmMzAxYTc0ZmVmM2RhNDBlMDk1ZWNkZTM1ZDhhNjIzM2NjOTlkZTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBlMDU1ZTIxMzRhNzA4ZGU5MzJhNTZmOWJkNzdiNDQ0ODUyMjE4M2M4OTQ0NmMyZTU2NmNkNjg0YzZjOTgxZWMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c1852cdaff974ec98ccc43905be441e6",
+      "statement": "Chat and Responses stream renderers defensively emit a terminal chunk plus [DONE] even when MessageStopEvent was never received.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/stream_codecs/openai_chat.py#L283-L294",
+          "version": "repo-lines-v1:sha256:de09827955d460a30c8742512960ee8c9d51fc5fe87d2283d2f7ae12cc9ce1d9:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNkOTBlZmY5NjlmYjZiZGZmZjEwMTQ5ZjgwOWNhMTE2NGQxMzViNzdhYjU4ZDI1NDA4ZjdiN2ZjOWVmYWQyNmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM3ZDRkMTJmZDg5MzcwM2EzOGM5NGI5MGE4NWQ1MDFjNWUxODg0NzA0ZTg0NzYyOWIxN2RiM2QxYmJmNWZiN2MiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVmYTU1YTEwOTk5NGI2NzBiOGZiMDA1ODMxOThiNWUyZTJhYzdiMzk4N2QyMzhiMWQzNzNkMjRiMTI4MTM1NDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/stream_codecs/openai_responses.py#L295-L319",
+          "version": "repo-lines-v1:sha256:ea2c33a0560ea2cadf7ad69383496de55746e63ed0d1b32f636a38d4d9fedcf9:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkxNTk0YTFlMDk0ZWQ0YTQ0MjJlMjVhMTlmMGQzYmM4NzljMzQzMDYyODQwMTczMWNlMTVlMzZkNzE4ODY4MDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjNTIxNTE2MmQ4ZjE5ZDg4NDk5YTg5MDU2ZjJjYjYxZWU4OTBjMjY1MTVjMjliNWFiYzkzZGUzNDg1NDExNTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE1MWEyMjFkNTJhYWY4N2Q1NGViNWIzNWMwOTg5NDgwOTI2ZmE5ZTRiYWUzNzYyZGE1YTVlMjk1ZjI3ZTAzZGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE1YTc1ZWI0MDFjNDUzZTIxZTkzNzAzZDg1MTQxZDAwMmQ0ZTM2YWQ2NDMzNjdmNTRmNWU3ZTZhNmIxZWNjM2UifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_873bb98f2d1b49f0b12af01150e7caf5",
+      "statement": "Client disconnect during streaming aborts the generator which exits the httpx.stream context and closes the upstream connection.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L348-L351",
+          "version": "repo-lines-v1:sha256:b69adf8b426d3f2b4ca32dddae13b7f3f7108674cf0996223654d6bbed02e85b:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjA0OWYxYzAzYTMxOTc4NjExOTZmMzcyOTJjY2ExZTE1YmQ0NDNiZWIxZTQxNTUwYmY0ODQ1NmQ4ZmZhN2Q5OCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNGRhMmUyNTYyOTM4NWE5Y2E3ZDM2M2U3Yzc4MWMzNzliMDVlMTVkZWVjYTk4OWQwMTJkMWIzODI5ZmQyZWFhYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzk3NWVjMWM4ZGU1NjZmNDc1ODVlNDQ5NTIwYTQ2MmYwMTYwNjJjYTkxOGRmZTFmZTI5ODljYjRhM2JiMmVmNiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiN2NlZTE2ZTI2NThhOTIyZjJlM2JhNWVhNTdlOGEwYTcwM2JjODAxMzQwNDZlYjZiMmVkOTg1YzhkNDc4OGQ0ZSJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/upstream.py#L80-L91",
+          "version": "repo-lines-v1:sha256:ac4f286ee03652e50a2294388ca70623eee5a772e27ef7f817854c1baab61a70:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRiZmM0ZTMyOGI1OGQxYTg2MDA3NDYwMmJiMjMzMDdmNWVmNjIwNmVhZWQyMDEzMzViOGU2Y2MzYjM2ZTFhZGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4YmU1MzAxNzk0MmExZGUzZDk3NDU0MmU3ZDVmNDg0ZmI3MmNjNGI3MzY2NDFhYTQ1NmRiZmFlYTNiM2QyOTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFkMDUyNzJlZTgyNDdhYTYzZDM4NjM2NTdhNTYwZmZmODIwNzk2NGVkZTUxMDJjZDI3MWJjZjU4NDZjMTRlZDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

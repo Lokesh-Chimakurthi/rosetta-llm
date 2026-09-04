@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:005e55278ecb4d610bc1810f94f4c371e341e98357a5f3ad907ca8a51f8edcab",
+  "claims": [
+    {
+      "id": "claim_b9cf134b40fe4575b006b1d206d92b1c",
+      "statement": "All cross-format translation flows through a single canonical IR (CanonicalRequest/CanonicalResponse/CanonicalStreamEvent); codecs convert only between their own wire format and the IR, never directly between wire formats.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/ir/request.py#L105-L117",
+          "version": "repo-lines-v1:sha256:ec5ceafd6641b928be114dd38178e6d0fb9c54eef0f0eb35df6c284974d467c2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzAwMTM4ZWFjMmVmY2Q2NGI3ZGE0ZDc2ZGQ3YzE2ODA0NTMzYjBhYjE3NTBkZDFjYzQxNjA4MDI0MTY2M2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE3ZWE4NzJiNzU3Y2NlYmZiNzFkZTM0ODlmZTZkOThmZWM1NTQ1NDM1ODg2NTNiYzQ5NzA2MzczYzllZGFjODAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYzM2FiYzBmMTg0MzJmYTNkYzRiNzkyNjVkMDYzMGY5YzMzMmY1MmY2MDk3Y2M1YmNkMTk0MDQ1NDhkMmUwYmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFlNDUyODdjMjAzYTY0Njk5YWY4Nzk1NWRkOTY3OGJjMThkNDA0ODg0MThiNmI3NTZjY2ZmYmQxZTczNmQ5NzUifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L47-L76",
+          "version": "repo-lines-v1:sha256:79293ced2d855d23905ca92631b1ea50fd8d66e1a1d4992d4d60d30be85a9092:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2ZjQ4ZTYwMzRmNzcwOTU0Yjc1YWJjMmIyZDQwOWI2OWM4NDVlYjlkMDc2MDM4OGY4NGNhOTBmOWQ3ZDdlM2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZhYTBjMWZlNDQ3YjM4ODIyZTI1YjA5MWMxNjUyNDFiOWYzYTc4YWJiZmM3MmU3NGJmMmJmZWI5ZTQ2NmUzOTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVmMzcxNWM3NzdjOWU1ZDU1NjFlOTc2YTI2MTRiMGUxZDY4ODQ2MGNlYmQ0ODIzYmZlZGVhM2FhNTY5MzUzZGMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a60d24c34dd943718bc5ffaed7e79bbf",
+      "statement": "Every _IRBase subtype carries format-specific fidelity in a _raw dict PrivateAttr attached via with_raw, as does every stream event type except PingEvent which declares no _raw; _raw never serializes unless a renderer explicitly reads it back.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/ir/events.py#L12-L61",
+          "version": "repo-lines-v1:sha256:bd7d30c5bf3dc34dc6df8b0c301cf471b5c7b352b721a7d16c9dbecf5122349f:eyJzZWxlY3RlZExpbmVDb3VudCI6NTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2NGU5ZmNhM2Q5Y2RhNjYzYmZhNDNhNmJjZjhjZDdjNGI2NzZmMTljOTliODNkODYzZjEzYWI3NDJmNjk5YjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiM2I4NzI1M2IzNjFkZjdiYzQ0ZGYwYTgwZDJkOTQ4MTZhNWQ3Y2FjZWZmYmY1OTFlODU4ZWYzN2RkNTRlMzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc1ZTM3MjVjMWY0NTM4ZjY4NGQ3Nzk4ZWNlZWI1OGM3N2EwYzk5Y2RmMzhkZDJlODJhNTdmMGU5MTA3ZWY0Y2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhZDYwNTAxYzViZjJiOTg4YjE5NzQyMzllNDg4MGMwMzU4NTRhYThmNTJiNGExODAwMjNmMmJmMzk1NzM5MDEifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/ir/helpers.py#L10-L13",
+          "version": "repo-lines-v1:sha256:8ba1d28c511f2143c2f225911d39b18f6b08a11db076b3f4171fe7f2856350ff:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOWU0Y2UwNzRjNDJjNDg4N2ZiMTZkZDc5MGJkNjgxM2NmN2YwMTViYThlZjBiNmEzNTUyYTIxMWU0MWUyMTljNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZWI2MGMzY2M4ZjgzMjNhMzhiMzgxMjk4ZjA0Yjc4MTc3ZTRlMDVkNWMyOWUyZTcyZDBkMGFhZGNkMmMyN2Q3MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTQwMTBiY2YzZDdkMjA5NzJiNjhiNzcyZDQ2ZTEzMTJkMjU1ZTliOGZlY2EyNWYxNDY4NDQ5MzA3MDJhYmRiMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/ir/request.py#L10-L13",
+          "version": "repo-lines-v1:sha256:8a9835c4b4ac5dbe0aa71140a0ce3b0bc6275536663d135c5544152a213291b6:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjBlYWM1MDM2MzgyNWQ4ZWIyYTRkNjNmMjIxMjA3NDRlNzNlMjA0NzkyNTM0MDFmMjJjNDk5NjU1Y2JhY2QxMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjNlYzAxYjY0ZmRmZGZiODYyYzkzNDEyMWJiMDc0MjgxNmI5MzQzZjdkOGE4YTliZmEyMjYzNDc3ZjZlMTMyYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGEwYzVmNDc0MDZjMmFlYjBhNDY4ODMxYjFlNzg5YjkxOGUzYzdmNjhjNDZkMGRiOTU2NGNiMjBlYzZhMmNlMSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_29499267118b4f42b015448adfdfcc98",
+      "statement": "ContentPart is a discriminated union on type covering text, image, document, tool_call, tool_result, reasoning, and refusal.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/ir/request.py#L64-L73",
+          "version": "repo-lines-v1:sha256:9f8c657308f84babc2b73a2e8c259821eda4c2c0ce5e36d8911bff90a12b263a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFjMWYyMWM5ZjdhMTU4YmFhMjRmZWEyOGE3NTY5ZDdhZDdjMjdiNzc0YzlmOWFkOGQ5NzNlY2Q3NmNlOTM5YWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5NDE2ZTA5Zjc4YmEzMTZjMDMyNTY4MjEzYjg1NWVlNzU2ZTQxNTY1ZDkxOGYwOTUxOWM4MWZkNjIwZjQwNjAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYzZGI3ZDE2N2U2YTE2ZjQ4YzgyZjk4NDk1ODAzYTdjMzk0OGE5YzdjZWQzMDE2NmZhMTY1MjI1MGY3MzRmODIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFhZTgxZDI4NGJhZWE1OWUxZTg4N2M4OTY5OTY3ZTQ5NzJhYzczMGM3ZTljMmFhNWZhZDQ5YTcyZTMyNzhiNmIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7bdc6c6cdb1d440f8ad6809978b721ba",
+      "statement": "ToolCallPart always stores arguments as the JSON-serialized string arguments_json_text and ToolResultPart nests its own content_parts list with call_id and is_error.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/ir/request.py#L33-L45",
+          "version": "repo-lines-v1:sha256:a161bf0ca2c6773c8fd63b70b15a1b01abd6a35972f5c32fbe1b4ae670fefb0c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzNGI3NmI3OGE2YWNhYmY5NTlmNTdlZTVjNDRhNTE3NjQ5ZmIzNGVlNDE2MzlkYzI3YmEwNmIxZjQ2OTU4MjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk0OGFkOTkwZDg5MjE5MmFkMWU3NTg5ZGY5ZmMxY2EwYzM0N2EzNmMxY2E4YWZhZjkyYmM0ZjJkYzEwODcyNjkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyOWU1YmVkODJjYzFjYTMxM2JjZDM2Y2M4YWY0M2E2OWU1NjdjYWM2MGQ3NTVmMTM4ZTdkNzM3MGMyMTlmNzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBjMDVhYzljNjYzMjVlM2ExNGI3NWI5OWVjYTYxNTUwMjU0MTdhNjljYTNkYTJkNjk3ZjFlZDBhZTVjMDk1ZDIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c0a9f7a800564367ba9f1cd1a50a9a84",
+      "statement": "ReasoningPart separates text, signature, encrypted_content, reasoning_id, and summary with a visible/redacted flag, enabling lossless Anthropic signature and Responses reasoning-id round-trips.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/ir/request.py#L48-L56",
+          "version": "repo-lines-v1:sha256:29af07d0b56861352c7099fd52f18015e4f91dfc8a24d21ea9d6f8aac1991641:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODAyNTkzOGRkOGZiNGIwZDM5ODA3MzMyNGNhYmRmNmM3YzFhM2RmMzgzYjI3NDQ5NDQ0ZTVhMDkwMzNmYTQyNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNTRjN2QyYzY1MDJmZjBhNTYzODBiNmZkOWRiZmU3NjIwZGM0MWVhMmU2YmYxNmUxM2NjNWIzNzJjYzI1NWJlMCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTVlZWRkMzViYzA4NTNhY2FlYTRlNTg5NzdkYjgyMzMxNDRhMzhkZjYzNzY2YmI1YTkzNTI4NTVhMjEyZTZiZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGVmZTBiYzcwOTE2MzcxYjhmNjljZGQwZWRhOTZiZGUwNzhiZmZhZjIyNjNjNTRlM2I3ODAxZGJmYjgzNzdhNCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_51233c3b92b94010b0279fcda909edfb",
+      "statement": "The Message tool role exists only for the OpenAI Chat-style flow; Anthropic represents tool results as ToolResultPart blocks inside a user message.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/ir/request.py#L76-L79",
+          "version": "repo-lines-v1:sha256:1e7b46386cb66d496f7468055349906c38c2e873c63af6281be934d75b95bc60:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDU1MjIzMzU2MzBjZDQ4NmIwM2M3ZWE2ZWQ1YjUwODY1NjY3NjEwMDVjMGQ5ZmVlOTNjNWJlYjdjMjg0ZjVlNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNGM2YzlmM2MzNjIwMjJlNTliOTQ3NWIzODljMTNjNjUzODEzYTRkOWFmMWQxOWFkODAyZjZmMjViYTcyMTcwOSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDNkMTcxZGU3NTQzMWEwMjFhMGQ5NGZhNzZmYWJmMGQ3MTM5Yzg5OGMxYTBiNDRiNDNjYTYwOTAzZmExYjg0NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2MwMzk3Mzk1NDJhZTJjNDkzZTY0OWZlMjlmYTExMWJiMWQ1NTE2YmMzY2I3OWUzN2I4NjNlYzIzZmU5Yjc2YSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_296262df964c4f7abe4e44bd72db802a",
+      "statement": "CanonicalResponse reuses the request-side Message type and normalizes usage into five counters and stop info into normalized plus provider_raw plus stop_sequence.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/ir/response.py#L12-L32",
+          "version": "repo-lines-v1:sha256:29f5e33a7a401546ed28a0fe54e69e9e5c6a305fbcec3cd1788b1b9bcf2031ba:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVjNzNiNWNlZmEwMDc1OGM1ZGJhYTg5OTQzMGY1NDE1OTcwOTVjYjc1OTdmNTM4MjZkNGE2ZDliNDY5ZmNiMGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiM2I4NzI1M2IzNjFkZjdiYzQ0ZGYwYTgwZDJkOTQ4MTZhNWQ3Y2FjZWZmYmY1OTFlODU4ZWYzN2RkNTRlMzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg2OGExNzhlNzA1N2U4NWIzNTA4NzcyYzkwMGQ3YTZiMDAwZjY2Y2IxYWNhMTJlZmZjYTZhMTA1N2YzMDhmZWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_210e5be570e24b4dbc6dcc5a01690ef6",
+      "statement": "CanonicalStreamEvent is a fixed eight-event vocabulary (message_start, part_start, part_delta, part_stop, message_delta, message_stop, ping, error) used for all streaming translation regardless of SSE dialect.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/ir/events.py#L64-L73",
+          "version": "repo-lines-v1:sha256:f1134eb767899974cc3afc08c5cd03da200c7c0a04d147f6a75f5c5e095d25cf:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYwMTcyNmIwZjhlZjM2NDhkZWY3MGJlNmE4Y2IxYjNiOTMwMDc1M2JmMTQ0NWRiYzg3MWVmNzQ5MTc5YmY4NjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc5ZDFlNmQ1YmNkM2QyMGUxZTMxMjRjNTFlYjY2NDVhMmRjZTFlYWNhMDRmZmM0OWM2ZWJmZDc4NzQ3YTM3MjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_afeec8314f2d462880e531d7023956cc",
+      "statement": "The passthrough fast path bypasses IR allocation entirely and only rewrites the model field, while the translate slow path runs inbound parse to IR to provider render and back.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L151-L177",
+          "version": "repo-lines-v1:sha256:455de9b00d4531c91ab09d3a2fc63b229de5c50f5f4d73e9287c2ed7bdc13376:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc4Mjk3YWIzYTBkYjQxYzZjMzM2MDQxNzQxNTM5NTg1N2ZhZTMxM2YwNGUwMjNlMjVhZmU5MDk0ZTA4MWRjODMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFjZDgwZDYzNDkwOTA3MGNkN2UzMGViN2ZjODFjMjMxNTcxYTMzMTMxODRhZDA3M2MzODk2M2UwMjlhNzQ3NDUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlNzg2ZDFlOTFmNGQyMmZjN2JmMmU4NDRiMmYwZjNkNWFmZDI4MDZhZGY2NDYxNmVkNWQ2MmI4MDEwYmU1ZmIifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

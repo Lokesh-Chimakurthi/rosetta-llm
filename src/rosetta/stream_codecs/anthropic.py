@@ -146,17 +146,49 @@ _DELTA_TYPE_MAP = {
 }
 
 
+def _message_delta_payload(event: MessageDeltaEvent) -> dict[str, Any]:
+    """Build the wire payload for the single terminal message_delta.
+
+    Anthropic semantics conversion happens here: the IR's input_tokens is
+    OpenAI-style (includes cached + cache-written tokens), Anthropic's
+    excludes them. Cache fields are omitted when zero, matching real Anthropic.
+    """
+    delta_data: dict[str, Any] = {}
+    if event.stop:
+        delta_data["stop_reason"] = _STOP_NORM.get(event.stop.normalized, event.stop.provider_raw)
+        delta_data["stop_sequence"] = event.stop.stop_sequence
+    usage_data: dict[str, Any] = {"output_tokens": 0}
+    if event.usage:
+        u = event.usage
+        usage_data["input_tokens"] = max(
+            u.input_tokens - u.cache_read_input_tokens - u.cache_creation_input_tokens, 0
+        )
+        usage_data["output_tokens"] = u.output_tokens
+        if u.cache_read_input_tokens:
+            usage_data["cache_read_input_tokens"] = u.cache_read_input_tokens
+        if u.cache_creation_input_tokens:
+            usage_data["cache_creation_input_tokens"] = u.cache_creation_input_tokens
+    return {"type": "message_delta", "delta": delta_data, "usage": usage_data}
+
+
 async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[bytes]:
-    """Render canonical IR events into Anthropic SSE bytes."""
+    """Render canonical IR events into Anthropic SSE bytes.
+
+    A received MessageDeltaEvent is held rather than yielded: real Anthropic
+    sends exactly one usage-bearing message_delta at the end of the stream,
+    so the held delta (merged last-wins if several arrive) flushes right
+    before message_stop — or at generator end if the stream was truncated.
+    """
     message_id = f"msg_{uuid.uuid4().hex[:24]}"
-    started = False
+    held_delta: MessageDeltaEvent | None = None
 
     async for event in events:
         if isinstance(event, MessageStartEvent):
-            started = True
             raw_id = event._raw.get("id") if isinstance(event._raw, dict) else None
             if isinstance(raw_id, str) and raw_id:
                 message_id = raw_id
+            # All four usage fields zeroed: signals prompt-caching support to
+            # clients (LiteLLM precedent) without buffering content.
             yield _sse(
                 "message_start",
                 {
@@ -169,7 +201,12 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
                         "content": [],
                         "stop_reason": None,
                         "stop_sequence": None,
-                        "usage": {"input_tokens": 0, "output_tokens": 0},
+                        "usage": {
+                            "input_tokens": 0,
+                            "output_tokens": 0,
+                            "cache_read_input_tokens": 0,
+                            "cache_creation_input_tokens": 0,
+                        },
                     },
                 },
             )
@@ -218,22 +255,18 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
         elif isinstance(event, PartStopEvent):
             yield _sse("content_block_stop", {"type": "content_block_stop", "index": event.index})
         elif isinstance(event, MessageDeltaEvent):
-            delta_data: dict[str, Any] = {}
-            if event.stop:
-                delta_data["stop_reason"] = _STOP_NORM.get(
-                    event.stop.normalized, event.stop.provider_raw
+            # Hold until terminal; several deltas merge last-wins per field.
+            if held_delta is None:
+                held_delta = event
+            else:
+                held_delta = MessageDeltaEvent(
+                    stop=event.stop or held_delta.stop,
+                    usage=event.usage if event.usage is not None else held_delta.usage,
                 )
-                delta_data["stop_sequence"] = event.stop.stop_sequence
-            usage_data: dict[str, Any] = {
-                "output_tokens": event.usage.output_tokens if event.usage else 0
-            }
-            if event.usage and event.usage.input_tokens:
-                usage_data["input_tokens"] = event.usage.input_tokens
-            yield _sse(
-                "message_delta",
-                {"type": "message_delta", "delta": delta_data, "usage": usage_data},
-            )
         elif isinstance(event, MessageStopEvent):
+            if held_delta is not None:
+                yield _sse("message_delta", _message_delta_payload(held_delta))
+                held_delta = None
             yield b'event: message_stop\ndata: {"type":"message_stop"}\n\n'
         elif isinstance(event, PingEvent):
             yield b'event: ping\ndata: {"type":"ping"}\n\n'
@@ -246,10 +279,10 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
                 },
             )
 
-    # Ensure clients see message_stop even if upstream forgot.
-    if started:
-        # No-op: caller is expected to feed MessageStopEvent. Defensive only.
-        pass
+    # Defensive: upstream closed without message_stop — flush the held delta
+    # so a truncated stream still reports its stop reason and usage.
+    if held_delta is not None:
+        yield _sse("message_delta", _message_delta_payload(held_delta))
 
 
 async def wrap_with_ping(

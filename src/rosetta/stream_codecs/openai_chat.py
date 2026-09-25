@@ -27,13 +27,44 @@ from rosetta.stop_reasons import OPENAI_CHAT_STOP_OUT as _STOP_OUT
 _TEXT_BLOCK_INDEX = 0  # Conventional index for the assistant text block.
 
 
+def _merge_usage(accumulated: Usage, usage_data: dict[str, Any]) -> None:
+    """Fold one upstream usage payload into the accumulated state, last-wins per field.
+
+    Only fields the chunk actually reports are overwritten, so a later
+    usage-only chunk can add cache/reasoning detail to totals that arrived
+    inline on the finish chunk (and vice versa).
+    """
+    prompt_details = usage_data.get("prompt_tokens_details") or {}
+    completion_details = usage_data.get("completion_tokens_details") or {}
+    if "prompt_tokens" in usage_data:
+        accumulated.input_tokens = int(usage_data["prompt_tokens"] or 0)
+    if "completion_tokens" in usage_data:
+        accumulated.output_tokens = int(usage_data["completion_tokens"] or 0)
+    if "cached_tokens" in prompt_details:
+        accumulated.cache_read_input_tokens = int(prompt_details["cached_tokens"] or 0)
+    if "cache_write_tokens" in prompt_details:
+        accumulated.cache_creation_input_tokens = int(prompt_details["cache_write_tokens"] or 0)
+    if "reasoning_tokens" in completion_details:
+        accumulated.reasoning_tokens = int(completion_details["reasoning_tokens"] or 0)
+
+
 async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEvent]:
-    """Parse OpenAI Chat SSE byte stream into canonical IR events."""
+    """Parse OpenAI Chat SSE byte stream into canonical IR events.
+
+    Emits exactly one MessageDeltaEvent per stream, at the terminal
+    ([DONE] sentinel or generator exhaustion) right before MessageStopEvent,
+    carrying the fully-accumulated usage and the captured stop reason. With
+    ``stream_options.include_usage`` the usage-only chunk arrives *after* the
+    finish_reason chunk, so emitting at finish_reason would report zeros.
+    """
     buffer = b""
     started = False
     text_block_open = False
     reasoning_block_open = False
     tool_seen: set[int] = set()
+    usage = Usage()
+    stop: StopInfo | None = None
+    terminated = False
 
     async for chunk in chunks:
         buffer += chunk
@@ -48,9 +79,11 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     continue
                 data_str = line[5:].lstrip()
                 if data_str == "[DONE]":
+                    terminated = True
                     if text_block_open:
                         yield PartStopEvent(index=_TEXT_BLOCK_INDEX)
                         text_block_open = False
+                    yield MessageDeltaEvent(stop=stop, usage=usage)
                     yield MessageStopEvent()
                     continue
 
@@ -77,15 +110,9 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
 
                 choices = data.get("choices") or []
                 if not choices:
-                    # Some providers send a final usage-only chunk.
-                    usage_data = data.get("usage")
-                    if usage_data:
-                        yield MessageDeltaEvent(
-                            usage=Usage(
-                                input_tokens=int(usage_data.get("prompt_tokens", 0) or 0),
-                                output_tokens=int(usage_data.get("completion_tokens", 0) or 0),
-                            )
-                        )
+                    # Usage-only chunk (include_usage): accumulate; the delta
+                    # is emitted once, at the terminal.
+                    _merge_usage(usage, data.get("usage") or {})
                     continue
 
                 choice = choices[0]
@@ -161,19 +188,21 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     for idx in tool_seen:
                         yield PartStopEvent(index=idx)
                     tool_seen.clear()
-                    usage_data = data.get("usage") or {}
-                    yield with_raw(
-                        MessageDeltaEvent(
-                            stop=StopInfo(
-                                normalized=_STOP_IN.get(finish, finish), provider_raw=finish
-                            ),
-                            usage=Usage(
-                                input_tokens=int(usage_data.get("prompt_tokens", 0) or 0),
-                                output_tokens=int(usage_data.get("completion_tokens", 0) or 0),
-                            ),
-                        ),
-                        data,
+                    # Some providers inline usage on the finish chunk; with
+                    # include_usage the full chunk follows later. Either way
+                    # the single terminal delta carries the accumulation.
+                    _merge_usage(usage, data.get("usage") or {})
+                    stop = StopInfo(
+                        normalized=_STOP_IN.get(finish, finish), provider_raw=finish
                     )
+
+    # Generator exhausted without [DONE]: still terminate well-formed so the
+    # stop reason and accumulated usage reach downstream renderers.
+    if started and not terminated:
+        if text_block_open:
+            yield PartStopEvent(index=_TEXT_BLOCK_INDEX)
+        yield MessageDeltaEvent(stop=stop, usage=usage)
+        yield MessageStopEvent()
 
 
 def _sse(payload: dict[str, Any]) -> bytes:

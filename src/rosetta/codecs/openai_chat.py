@@ -321,6 +321,12 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
     for k, v in ir.raw_extras.items():
         body.setdefault(k, v)
 
+    # Ask the upstream for a final usage-only chunk on streaming — OpenAI Chat
+    # servers emit it only when requested. A client-sent `stream_options`
+    # (arrives via raw_extras) keeps its own value; non-streaming never sets it.
+    if ir.stream and "stream_options" not in body:
+        body["stream_options"] = {"include_usage": True}
+
     return body
 
 

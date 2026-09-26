@@ -79,12 +79,18 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     continue
                 data_str = line[5:].lstrip()
                 if data_str == "[DONE]":
-                    terminated = True
-                    if text_block_open:
-                        yield PartStopEvent(index=_TEXT_BLOCK_INDEX)
-                        text_block_open = False
-                    yield MessageDeltaEvent(stop=stop, usage=usage)
-                    yield MessageStopEvent()
+                    # Guard: a pathological upstream may send [DONE] twice;
+                    # the terminal pair (delta + stop) is emitted exactly once.
+                    if not terminated:
+                        terminated = True
+                        if text_block_open:
+                            yield PartStopEvent(index=_TEXT_BLOCK_INDEX)
+                            text_block_open = False
+                        if reasoning_block_open:
+                            yield PartStopEvent(index=_TEXT_BLOCK_INDEX)
+                            reasoning_block_open = False
+                        yield MessageDeltaEvent(stop=stop, usage=usage)
+                        yield MessageStopEvent()
                     continue
 
                 try:
@@ -192,14 +198,14 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     # include_usage the full chunk follows later. Either way
                     # the single terminal delta carries the accumulation.
                     _merge_usage(usage, data.get("usage") or {})
-                    stop = StopInfo(
-                        normalized=_STOP_IN.get(finish, finish), provider_raw=finish
-                    )
+                    stop = StopInfo(normalized=_STOP_IN.get(finish, finish), provider_raw=finish)
 
     # Generator exhausted without [DONE]: still terminate well-formed so the
     # stop reason and accumulated usage reach downstream renderers.
     if started and not terminated:
         if text_block_open:
+            yield PartStopEvent(index=_TEXT_BLOCK_INDEX)
+        if reasoning_block_open:
             yield PartStopEvent(index=_TEXT_BLOCK_INDEX)
         yield MessageDeltaEvent(stop=stop, usage=usage)
         yield MessageStopEvent()

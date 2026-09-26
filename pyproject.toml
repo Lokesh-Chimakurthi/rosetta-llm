@@ -1,6 +1,6 @@
 [project]
 name = "rosetta-llm"
-version = "0.2.1"
+version = "0.2.2"
 description = "Multi-format bidirectional LLM proxy — translates between OpenAI Chat, OpenAI Responses, and Anthropic Messages"
 readme = "README.md"
 requires-python = ">=3.10"

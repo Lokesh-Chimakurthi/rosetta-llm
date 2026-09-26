@@ -364,7 +364,13 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
     if ir.tools:
         body["tools"] = [
             {
-                "type": "function" if t.kind == "function" else (t._raw.get("type") or "function"),
+                "type": (
+                    "function"
+                    if t.kind == "function"
+                    else (t._raw.get("type") or "function")
+                    if isinstance(t._raw, dict)
+                    else "function"
+                ),
                 "name": t.name,
                 "description": t.description,
                 "parameters": t.input_schema or {"type": "object", "properties": {}},

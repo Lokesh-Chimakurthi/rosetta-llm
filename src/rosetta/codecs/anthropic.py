@@ -160,7 +160,7 @@ def _parse_content_block(block: dict[str, Any]) -> ContentPart:
 
 
 def _render_content_part(part: ContentPart) -> dict[str, Any]:
-    cc = part._raw.get("cache_control") if hasattr(part, "_raw") else None
+    cc = part._raw.get("cache_control") if isinstance(part._raw, dict) else None
     if isinstance(part, TextPart):
         block: dict[str, Any] = {"type": "text", "text": part.text}
         if cc:

@@ -29,4 +29,4 @@ class CanonicalResponse(BaseModel):
     output_messages: list[Message] = Field(default_factory=list)
     stop: StopInfo = Field(default_factory=StopInfo)
     usage: Usage = Field(default_factory=Usage)
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)

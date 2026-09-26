@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 class _IRBase(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)
 
 
 class TextPart(_IRBase):

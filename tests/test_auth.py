@@ -124,7 +124,7 @@ def test_401_uses_the_inbound_format_envelope(
         assert "type" not in body
 
 
-@pytest.mark.parametrize("path", ["/health", "/openapi.json"])
+@pytest.mark.parametrize("path", ["/health", "/openapi.json", "/docs", "/docs/oauth2-redirect"])
 def test_public_paths_need_no_key(path: str) -> None:
     with build_client(_KEYED, FakeUpstream()) as client:
         assert client.get(path).status_code == 200

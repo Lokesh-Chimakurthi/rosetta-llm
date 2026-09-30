@@ -21,7 +21,11 @@ from fastapi.responses import JSONResponse
 from rosetta.config import ProviderConfig
 from rosetta.observability import get_logger
 from rosetta.routes.deps import ConfigDep
-from rosetta.routes.schemas import AnthropicModelPageResponse, OpenAIModelListResponse
+from rosetta.routes.schemas import (
+    AnthropicModelPageResponse,
+    OpenAIModelListResponse,
+    error_responses,
+)
 from rosetta.upstream import UpstreamClient, UpstreamStatusError
 
 router = APIRouter(prefix="/v1", tags=["models"])
@@ -309,7 +313,19 @@ def _snapshot(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/models")
+@router.get(
+    "/models",
+    summary="List models",
+    description=(
+        "Every routable `<provider>/<model>` id: configured models plus those discovered from "
+        'providers configured with `["*"]`, refreshed in the background. With an '
+        "`anthropic-version` header the reply is an Anthropic model page (`after_id`, "
+        "`before_id`, `limit` paginate it), and so is the 401 envelope; otherwise an OpenAI "
+        "model list. Claude Code clients get non-Anthropic ids prefixed with `claude-code/` so "
+        "they appear in its model picker."
+    ),
+    responses=error_responses("openai_chat", 401),
+)
 async def get_models(
     request: Request,
     response: Response,
@@ -344,7 +360,15 @@ async def get_models(
     return OpenAIModelListResponse(object="list", data=models)
 
 
-@router.post("/models/refresh")
+@router.post(
+    "/models/refresh",
+    summary="Refresh discovered models",
+    description=(
+        "Re-query every discovering provider now instead of waiting for the background "
+        "refresh. Returns the number of models afterwards."
+    ),
+    responses=error_responses("openai_chat", 401),
+)
 async def refresh(config: ConfigDep, request: Request) -> JSONResponse:
     upstream = cast(UpstreamClient, request.app.state.upstream)
     async with request.app.state.model_refresh_lock:

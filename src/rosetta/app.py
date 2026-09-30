@@ -21,6 +21,22 @@ from rosetta.upstream import UpstreamClient
 
 _REFRESH_INTERVAL = 300  # seconds
 
+_DESCRIPTION = """\
+Rosetta lets any client SDK talk to any provider, whichever of three API formats either side speaks.
+
+**Model ids** are `<provider>/<model>`: the part before the first `/` is a provider key from the config, the rest is the provider's model name (optionally remapped by `upstream_name`). A `claude-code/` prefix is stripped first.
+
+**Inbound formats**, each with its own endpoint and error envelope:
+
+- Anthropic Messages — `POST /v1/messages` ([reference](https://platform.claude.com/docs/en/api/messages)); errors are `{"type": "error", "error": {"type", "message"}}`.
+- OpenAI Chat Completions — `POST /v1/chat/completions` ([reference](https://platform.openai.com/docs/api-reference/chat)); errors are `{"error": {"message", "type", "code", "param"}}`.
+- OpenAI Responses — `POST /v1/responses` ([reference](https://platform.openai.com/docs/api-reference/responses)); same envelope as Chat Completions.
+
+When the provider speaks the inbound format the body is forwarded verbatim with only `model` rewritten; otherwise it is translated both ways.
+
+**Authentication**: when proxy API keys are configured, send `Authorization: Bearer <key>` or `x-api-key: <key>`. `/health`, `/docs` and `/openapi.json` never need a key.
+"""
+
 
 async def _models_refresh_loop(app: FastAPI, interval: float) -> None:
     while True:
@@ -77,7 +93,13 @@ def create_app(config: Config, *, upstream: UpstreamClient | None = None) -> Fas
             configured and `proxy.allow_unauthenticated` is false.
     """
     ensure_safe_bind(config)
-    app = FastAPI(lifespan=lifespan)
+    app = FastAPI(
+        title="Rosetta",
+        version=__version__,
+        description=_DESCRIPTION,
+        redoc_url=None,
+        lifespan=lifespan,
+    )
     app.state.config = config
     app.state.upstream = upstream if upstream is not None else UpstreamClient(config)
     app.state.provider_status = {}

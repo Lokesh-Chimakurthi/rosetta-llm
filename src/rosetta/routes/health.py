@@ -8,7 +8,12 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
-from rosetta.routes.schemas import HealthResponse, ProvidersResponse, ProviderStatusItem
+from rosetta.routes.schemas import (
+    HealthResponse,
+    ProvidersResponse,
+    ProviderStatusItem,
+    error_responses,
+)
 
 router = APIRouter(tags=["health"])
 
@@ -25,12 +30,26 @@ async def root() -> RedirectResponse:
     return RedirectResponse(url="/docs")
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Liveness check",
+    description="Always 200 while the process serves requests. Never requires a key and is never logged.",
+)
 async def health() -> HealthResponse:
     return HealthResponse(status="ok", message="Status: healthy. Cause: you checked on me.")
 
 
-@router.get("/providers", response_model=ProvidersResponse)
+@router.get(
+    "/providers",
+    response_model=ProvidersResponse,
+    summary="Provider status",
+    description=(
+        "Each configured provider's key, format and the outcome of its most recent upstream "
+        "call (`ok`, `error`, or `unknown` before the first call)."
+    ),
+    responses=error_responses("openai_chat", 401),
+)
 async def providers(request: Request) -> ProvidersResponse:
     config = request.app.state.config
     status = request.app.state.provider_status

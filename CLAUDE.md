@@ -88,6 +88,9 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - Keys are fixed at app creation and compared with `hmac.compare_digest`; Bearer or `x-api-key` may match. Public paths: `/health`, `/docs`, `/docs/oauth2-redirect`, `/openapi.json`.
 - `errors.inbound_format_for(path, headers)` is the single home for which error envelope a request gets.
 
+### API docs
+- FastAPI's default `/docs` (Swagger UI assets from its CDN) and `/openapi.json`; ReDoc is off. Every route declares `summary`, `description` and its error statuses via `routes.schemas.error_responses(fmt, ...)`, which picks the envelope model for the route's format.
+
 ### Logging
 - **One line per request at info**: `RequestContextMiddleware` owns the `RequestLog` (contextvar, `request_log()`) and emits `request_completed` exactly once (body finished, client gone, or app raised); `/health` is never logged. Code sets fields on `request_log()` instead of logging its own info lines.
 - **Debug stage events**: `request_received` (from a pass-through receive tap — never buffer the body), `upstream_request`/`upstream_response` (from `upstream.py`), `stream_summary`. Build previews, header copies and counters only when debug is on (`RequestLog.debug`).

@@ -90,8 +90,11 @@ python -m rosetta
 | POST | `/v1/chat/completions` | OpenAI Chat Completions |
 | POST | `/v1/responses` | OpenAI Responses |
 | GET | `/v1/models` | Merged model list |
+| POST | `/v1/models/refresh` | Re-query discovering providers now |
 | GET | `/health` | Liveness check |
 | GET | `/providers` | Provider status |
+| GET | `/docs` | Interactive API docs (Swagger UI; the browser loads its assets from FastAPI's default CDN) |
+| GET | `/openapi.json` | OpenAPI schema: summaries, descriptions and error envelopes for every route |
 
 ## Model ID Format
 

@@ -76,7 +76,8 @@ def _arguments_to_text(input_value: Any) -> str:
 
 def _arguments_from_text(text: str) -> Any:
     if not text:
-        return {}
+        empty: dict[str, Any] = {}
+        return empty
     try:
         return orjson.loads(text)
     except orjson.JSONDecodeError:
@@ -359,7 +360,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
         )
 
     if ir.tools:
-        body["tools"] = []
+        tools: list[dict[str, Any]] = []
         for t in ir.tools:
             tool_body: dict[str, Any] = {}
             if hasattr(t, "_raw") and isinstance(t._raw, dict):
@@ -367,7 +368,8 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
             tool_body["name"] = t.name
             tool_body["description"] = t.description
             tool_body["input_schema"] = t.input_schema or {"type": "object", "properties": {}}
-            body["tools"].append(tool_body)
+            tools.append(tool_body)
+        body["tools"] = tools
         body["tool_choice"] = _render_tool_choice(ir.tool_choice)
 
     if ir.sampling.temperature is not None:

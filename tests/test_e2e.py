@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -32,7 +33,7 @@ def _parse_sse(raw: bytes) -> list[tuple[str, dict[str, Any]]]:
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client() -> Iterator[TestClient]:
     os.environ["UP_KEY"] = "sk-up"
     cfg = Config.model_validate(
         {

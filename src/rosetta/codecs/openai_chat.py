@@ -147,7 +147,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         if not isinstance(t, dict):
             continue
         func = t.get("function", {}) or {}
-        params = func.get("parameters", {}) or {}
+        params: dict[str, Any] = func.get("parameters") or {}
         if (
             isinstance(params, dict)
             and params.get("type") == "object"
@@ -172,6 +172,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         reasoning.effort = effort
 
     stop_raw = payload.get("stop")
+    stop_sequences: list[str]
     if isinstance(stop_raw, str):
         stop_sequences = [stop_raw]
     elif isinstance(stop_raw, list):
@@ -358,7 +359,7 @@ def _render_tool_choice(tool_choice: Any) -> Any:
 
 def parse_response(payload: dict[str, Any]) -> CanonicalResponse:
     choices = payload.get("choices") or []
-    choice = choices[0] if choices else {}
+    choice: dict[str, Any] = choices[0] if choices else {}
     msg = choice.get("message", {}) or {}
     parts: list[ContentPart] = []
 
@@ -493,7 +494,7 @@ def render_response(ir: CanonicalResponse) -> dict[str, Any]:
         },
     }
     # Carry through provider-specific response fields when present in _raw.
-    raw = ir._raw if hasattr(ir, "_raw") and isinstance(ir._raw, dict) else {}
+    raw: dict[str, Any] = ir._raw if hasattr(ir, "_raw") and isinstance(ir._raw, dict) else {}
     for field in ("system_fingerprint", "service_tier", "store"):
         if field in raw:
             result[field] = raw[field]

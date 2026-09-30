@@ -174,7 +174,7 @@ def _build_snapshot(
     anthropic_models: list[dict[str, Any]] = []
 
     for key, provider in config.providers.items():
-        entries = entries_by_provider.get(key, [])
+        entries: list[dict[str, Any]] = entries_by_provider.get(key, [])
         if not entries:
             # Static fallback when upstream fetch failed or provider uses static models.
             if provider.is_auto_discover:

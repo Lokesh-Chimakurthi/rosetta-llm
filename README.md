@@ -177,6 +177,6 @@ curl http://localhost:7860/v1/chat/completions \
 ```bash
 uv sync --group dev
 uv run pytest -q
-uv run mypy src/
+uv run pyrefly check
 uv run ruff check src/ tests/
 ```

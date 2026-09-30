@@ -7,6 +7,7 @@ import json
 from rosetta.codecs import anthropic as ac
 from rosetta.codecs import openai_chat as oc
 from rosetta.codecs import openai_responses as orc
+from rosetta.ir.request import ReasoningPart
 
 
 def test_anthropic_request_roundtrip_simple() -> None:
@@ -129,6 +130,7 @@ def test_responses_reasoning_lossless_via_anthropic_signature() -> None:
     # parse anthropic back
     ir2 = ac.parse_request(anthropic_payload)
     rp = ir2.messages[0].parts[0]
+    assert isinstance(rp, ReasoningPart)
     assert rp.encrypted_content == "ENCRYPTED_BLOB"
     assert rp.reasoning_id == "rs_abc"
     # render back to responses

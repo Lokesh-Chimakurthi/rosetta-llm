@@ -88,7 +88,7 @@ class Tool(_IRBase):
 
 
 class ReasoningConfig(BaseModel):
-    effort: Literal["low", "medium", "high", "xhigh"] | None = None
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
     budget_tokens: int | None = None
     thinking_type: Literal["enabled", "adaptive", "disabled"] | None = None
     summary: Literal["auto", "detailed", "concise"] | None = None

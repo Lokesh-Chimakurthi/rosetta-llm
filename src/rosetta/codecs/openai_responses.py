@@ -333,9 +333,10 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
                         item["id"] = part.reasoning_id
                     if part.encrypted_content:
                         item["encrypted_content"] = part.encrypted_content
-                    item["summary"] = (
+                    summary: list[dict[str, str]] = (
                         [{"type": "summary_text", "text": part.text}] if part.text else []
                     )
+                    item["summary"] = summary
                     body["input"].append(item)
             elif isinstance(part, TextPart):
                 ctype = "input_text" if msg.role == "user" else "output_text"
@@ -557,9 +558,10 @@ def render_response(ir: CanonicalResponse) -> dict[str, Any]:
                     item["id"] = part.reasoning_id
                 if part.encrypted_content:
                     item["encrypted_content"] = part.encrypted_content
-                item["summary"] = (
+                summary: list[dict[str, str]] = (
                     [{"type": "summary_text", "text": part.text}] if part.text else []
                 )
+                item["summary"] = summary
                 output.append(item)
             elif isinstance(part, RefusalPart):
                 text_parts.append({"type": "refusal", "refusal": part.text})

@@ -1,4 +1,4 @@
-"""Bearer-token authentication as a pure ASGI middleware.
+"""API-key authentication as a pure ASGI middleware, and the exposure check.
 
 BaseHTTPMiddleware buffers streaming responses, which would break SSE.
 Implementing as raw ASGI keeps streams flowing chunk-by-chunk.
@@ -6,55 +6,96 @@ Implementing as raw ASGI keeps streams flowing chunk-by-chunk.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import hmac
+import ipaddress
+from collections.abc import Awaitable, Callable, Collection
 from typing import Any
 
 import orjson
 
-ASGIApp = Callable[
-    [
-        dict[str, Any],
-        Callable[[], Awaitable[dict[str, Any]]],
-        Callable[[dict[str, Any]], Awaitable[None]],
-    ],
-    Awaitable[None],
-]
+from rosetta.config import Config
+from rosetta.errors import format_error, inbound_format_for
+
 Receive = Callable[[], Awaitable[dict[str, Any]]]
 Send = Callable[[dict[str, Any]], Awaitable[None]]
+ASGIApp = Callable[[dict[str, Any], Receive, Send], Awaitable[None]]
 
-_PUBLIC_PATHS = frozenset({"/health", "/providers"})
+# Never require a key: liveness, and the API docs (which carry no secrets).
+_PUBLIC_PATHS = frozenset({"/health", "/docs", "/docs/oauth2-redirect", "/openapi.json"})
+
+
+class InsecureBindError(RuntimeError):
+    """Serving would expose an unauthenticated proxy beyond this machine."""
+
+
+def _is_loopback(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def ensure_safe_bind(config: Config) -> None:
+    """Refuse a non-loopback bind with no API keys unless explicitly allowed.
+
+    Raises:
+        InsecureBindError: naming every remedy.
+    """
+    proxy = config.proxy
+    if _is_loopback(config.host) or proxy.api_keys or proxy.allow_unauthenticated:
+        return
+    raise InsecureBindError(
+        f"Refusing to serve on {config.host!r} without authentication: anyone who can reach "
+        "it could spend your provider credits. Fix one of: bind to a loopback address "
+        '(--host 127.0.0.1); set "proxy": {"api_keys": [...]} in the config; or, if another '
+        'layer authenticates, pass --allow-unauthenticated (or "proxy": '
+        '{"allow_unauthenticated": true}).'
+    )
+
+
+def _matches(candidate: str, keys: Collection[bytes]) -> bool:
+    token = candidate.encode()
+    # Every key is compared so the time taken does not depend on which one matched.
+    matched = False
+    for key in keys:
+        matched |= hmac.compare_digest(token, key)
+    return matched
 
 
 class AuthMiddleware:
-    """Strict ASGI middleware that rejects requests lacking a valid bearer token."""
+    """Rejects requests lacking a configured key, unless no keys are configured.
 
-    def __init__(self, app: ASGIApp) -> None:
+    A request passes when `Authorization: Bearer <k>` or `x-api-key: <k>`
+    matches any key.
+    """
+
+    def __init__(self, app: ASGIApp, *, api_keys: Collection[str]) -> None:
         self.app = app
+        self._keys = frozenset(k.encode() for k in api_keys)
 
     async def __call__(self, scope: dict[str, Any], receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != "http" or not self._keys or scope["path"] in _PUBLIC_PATHS:
             await self.app(scope, receive, send)
             return
 
-        config = scope["app"].state.config
-        keys = set(config.proxy.api_keys)
-        if not keys or scope["path"] in _PUBLIC_PATHS:
-            await self.app(scope, receive, send)
-            return
-
-        headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
-        token = ""
+        headers = {
+            k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])
+        }
         auth_header = headers.get("authorization", "")
-        if auth_header[:7].lower() == "bearer ":
-            token = auth_header[7:].strip()
-        if not token:
-            token = headers.get("x-api-key", "").strip()
-
-        if token in keys:
+        bearer = auth_header[7:].strip() if auth_header[:7].lower() == "bearer " else ""
+        api_key = headers.get("x-api-key", "").strip()
+        if (bearer and _matches(bearer, self._keys)) or (
+            api_key and _matches(api_key, self._keys)
+        ):
             await self.app(scope, receive, send)
             return
 
-        body = _error_body(scope["path"])
+        fmt = inbound_format_for(scope["path"], headers)
+        body = orjson.dumps(
+            format_error(fmt, 401, "authentication_error", "Invalid or missing API key")
+        )
         await send(
             {
                 "type": "http.response.start",
@@ -66,23 +107,3 @@ class AuthMiddleware:
             }
         )
         await send({"type": "http.response.body", "body": body})
-
-
-def _error_body(path: str) -> bytes:
-    if path.startswith("/v1/messages"):
-        return orjson.dumps(
-            {
-                "type": "error",
-                "error": {"type": "authentication_error", "message": "Invalid or missing API key"},
-            }
-        )
-    return orjson.dumps(
-        {
-            "error": {
-                "message": "Invalid or missing API key",
-                "type": "authentication_error",
-                "code": None,
-                "param": None,
-            },
-        }
-    )

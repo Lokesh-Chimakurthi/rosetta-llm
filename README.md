@@ -35,13 +35,31 @@ rosetta-llm --config ~/my-config.json --port 9999
 
 ### Docker
 
+The image binds `0.0.0.0` inside the container, so the mounted config must set `proxy.api_keys` (or `proxy.allow_unauthenticated: true` when another layer authenticates) — otherwise the proxy refuses to start. Publish the port on loopback unless other machines need it:
+
+```json
+{
+  "proxy": {"api_keys": ["sk-proxy-change-me"]},
+  "providers": {"...": "..."}
+}
+```
+
 ```bash
-docker run -p 7860:7860 \
+docker run -p 127.0.0.1:7860:7860 \
   -v ~/.rosetta-llm/config.json:/app/config.json \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   -e OPENAI_API_KEY=sk-... \
   ghcr.io/lokesh-chimakurthi/rosetta-llm:latest
 ```
+
+Clients then send `Authorization: Bearer sk-proxy-change-me` or `x-api-key: sk-proxy-change-me`.
+
+### Network exposure and authentication
+
+- `host` defaults to `127.0.0.1`. Binding any non-loopback address with no `proxy.api_keys` is refused at startup (exit status 2) unless `proxy.allow_unauthenticated` is true.
+- With keys configured, every request needs `Authorization: Bearer <key>` or `x-api-key: <key>` matching any key, except `/health`, `/docs`, `/docs/oauth2-redirect` and `/openapi.json`. A 401 uses the error envelope of the API the path belongs to (Anthropic for `/v1/messages*`, and for `/v1/models*` when `anthropic-version` is sent).
+- `X-Forwarded-*` headers are ignored unless `proxy.trust_proxy_headers` is true, and then only from `proxy.forwarded_allow_ips` (default `127.0.0.1`).
+- Precedence for each of these: CLI flag (`--host`, `--allow-unauthenticated`, `--proxy-headers/--no-proxy-headers`, `--forwarded-allow-ips`) > config > default.
 
 ### From source
 
@@ -59,7 +77,7 @@ python -m rosetta
 - **Canonical IR translation**: lossless cross-format translation including thinking blocks, tool calls, and reasoning
 - **Claude Code gateway**: full model picker integration — non-Anthropic models appear in `/model` via `claude-code/` prefixing
 - **Provider routing**: `<provider>/<model>` prefix scheme (e.g., `anthropic/claude-opus-4-7`)
-- **Bearer-token auth**: optional proxy-level API key authentication
+- **Safe by default**: binds loopback; refuses unauthenticated non-loopback binds; `Bearer` or `x-api-key` proxy keys
 - **Structured JSON logging**: request-scoped with configurable log levels
 - **Docker support**: multi-stage build with `python:3.13-slim`
 

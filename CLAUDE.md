@@ -83,6 +83,11 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
 - **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the `UpstreamClient.stream` context and its connection.
 
+### Auth and exposure
+- `ensure_safe_bind` (auth.py) is the one home of the exposure rule: non-loopback host + no `api_keys` + not `allow_unauthenticated` → `InsecureBindError` from `create_app`; the CLI exits 2.
+- Keys are fixed at app creation and compared with `hmac.compare_digest`; Bearer or `x-api-key` may match. Public paths: `/health`, `/docs`, `/docs/oauth2-redirect`, `/openapi.json`.
+- `errors.inbound_format_for(path, headers)` is the single home for which error envelope a request gets.
+
 ### Logging
 - **One line per request at info**: `RequestContextMiddleware` owns the `RequestLog` (contextvar, `request_log()`) and emits `request_completed` exactly once (body finished, client gone, or app raised); `/health` is never logged. Code sets fields on `request_log()` instead of logging its own info lines.
 - **Debug stage events**: `request_received` (from a pass-through receive tap — never buffer the body), `upstream_request`/`upstream_response` (from `upstream.py`), `stream_summary`. Build previews, header copies and counters only when debug is on (`RequestLog.debug`).
@@ -105,9 +110,9 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 
 ```json
 {
-  "host": "0.0.0.0",
+  "host": "127.0.0.1",
   "port": 7860,
-  "proxy": {"api_keys": []},
+  "proxy": {"api_keys": [], "allow_unauthenticated": false, "trust_proxy_headers": false, "forwarded_allow_ips": "127.0.0.1"},
   "log_level": "info",
   "providers": {
     "<key>": {

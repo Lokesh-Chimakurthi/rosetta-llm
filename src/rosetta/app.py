@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from rosetta import __version__
-from rosetta.auth import AuthMiddleware
+from rosetta.auth import AuthMiddleware, ensure_safe_bind
 from rosetta.config import Config
 from rosetta.observability import RequestContextMiddleware, get_logger
 from rosetta.routes.chat_completions import router as chat_router
@@ -71,7 +71,12 @@ def create_app(config: Config, *, upstream: UpstreamClient | None = None) -> Fas
     Args:
         upstream: Provider client to use instead of one built from `config`;
             it is started and closed by the app's lifespan.
+
+    Raises:
+        InsecureBindError: `config.host` is not loopback, no API keys are
+            configured and `proxy.allow_unauthenticated` is false.
     """
+    ensure_safe_bind(config)
     app = FastAPI(lifespan=lifespan)
     app.state.config = config
     app.state.upstream = upstream if upstream is not None else UpstreamClient(config)
@@ -79,7 +84,7 @@ def create_app(config: Config, *, upstream: UpstreamClient | None = None) -> Fas
     app.state.model_snapshot = {}
     app.state.model_refresh_lock = asyncio.Lock()
 
-    app.add_middleware(AuthMiddleware)
+    app.add_middleware(AuthMiddleware, api_keys=config.proxy.api_keys)
     app.add_middleware(RequestContextMiddleware)
 
     app.include_router(health_router)

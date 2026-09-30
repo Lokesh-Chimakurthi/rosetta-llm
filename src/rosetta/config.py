@@ -100,10 +100,15 @@ class ProviderConfig(BaseModel):
 
 class ProxyConfig(BaseModel):
     api_keys: list[str] = Field(default_factory=list)
+    # Serving without keys on a non-loopback host is refused unless this is set.
+    allow_unauthenticated: bool = False
+    # Honour X-Forwarded-For/-Proto only from `forwarded_allow_ips`.
+    trust_proxy_headers: bool = False
+    forwarded_allow_ips: str = "127.0.0.1"
 
 
 class Config(BaseModel):
-    host: str = "0.0.0.0"  # noqa: S104 - all-interfaces bind is intentional for Docker deployments
+    host: str = "127.0.0.1"
     port: int = 7860
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     log_level: LogLevel = "info"

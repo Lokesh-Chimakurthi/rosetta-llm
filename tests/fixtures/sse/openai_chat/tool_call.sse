@@ -1,0 +1,13 @@
+: Follows the chat completion chunk object (delta.tool_calls) at
+: https://platform.openai.com/docs/api-reference/chat-streaming
+
+data: {"id":"chatcmpl-456","object":"chat.completion.chunk","created":1694268191,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"call_abc123","type":"function","function":{"name":"get_weather","arguments":""}}]},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"chatcmpl-456","object":"chat.completion.chunk","created":1694268191,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"location\":"}}]},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"chatcmpl-456","object":"chat.completion.chunk","created":1694268191,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":" \"San Francisco, CA\"}"}}]},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"chatcmpl-456","object":"chat.completion.chunk","created":1694268191,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}
+
+data: [DONE]
+

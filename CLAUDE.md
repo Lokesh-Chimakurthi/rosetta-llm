@@ -124,7 +124,10 @@ Model id format: `<provider_key>/<model_name>` (e.g., `anthropic/claude-opus-4-7
 ## Tests
 
 - `tests/codecs/test_roundtrip.py` — codec property tests: Anthropic round-trip, tool-use input as object, tool-result ordering, Chat→Anthropic tool-call ID preservation, reasoning lossless round-trip (encrypted_content+id via signature), response round-trip, unknown-param passthrough, max_tokens synthesis, streaming partial-JSON buffering.
-- `tests/support/upstream.py` — `FakeUpstream` (an httpx2 transport routing by provider key and path, recording every request) and `build_client(config, fake)`. Tests never patch the network.
+- `tests/support/upstream.py` — `FakeUpstream` (an httpx2 transport routing by provider key and path, recording every request; `add_json`, `add_sse` with fixture name or bytes plus `chunk_size`/`delay_s`, `add_error`, `streams_opened`/`streams_closed`), `build_client(config, fake)` and `load_fixture(fmt, name)`. Tests never patch the network.
+- `tests/support/contracts.py` — SDK-schema plus lifecycle validators for every wire format (`validate_anthropic_message/stream`, `validate_chat_completion/stream`, `validate_response/responses_stream`); each failure starts with `[<rule>]`.
+- `tests/fixtures/sse/<format>/` — upstream SSE fixtures (text, tool_call, reasoning, error_midstream), each opening with a comment naming the documentation it follows.
+- `tests/test_harness.py` — the harness itself: fixtures pass, targeted mutations fail their named rule, passthrough stays byte-identical under any upstream chunking (hypothesis).
 - `tests/test_upstream.py` — `UpstreamClient` contract: error-status streams, capped error body, stream headers, transport-error kinds without host leakage.
 - `tests/test_e2e.py` — FastAPI TestClient + FakeUpstream: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough.
 

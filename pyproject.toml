@@ -36,6 +36,9 @@ rosetta-llm = "rosetta.__main__:main"
 
 [dependency-groups]
 dev = [
+    "anthropic==1.8.0",
+    "hypothesis==6.168.3",
+    "openai==3.19.2",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "ruff==0.16.9",

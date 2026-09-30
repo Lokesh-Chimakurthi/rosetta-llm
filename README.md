@@ -33,6 +33,36 @@ rosetta-llm --help
 rosetta-llm --config ~/my-config.json --port 9999
 ```
 
+### Command line
+
+| Command | Does |
+|---------|------|
+| `rosetta-llm serve [options]` | Run the proxy. The default: `rosetta-llm [options]` is the same. |
+| `rosetta-llm check [options]` | Load and validate the config with the same overrides, run the exposure check, print a summary without secrets or URLs. Exit status 0 when `serve` would start, 2 otherwise. |
+| `rosetta-llm version` | Print the version (also `rosetta-llm --version`). |
+
+Options for `serve` and `check` (each overrides the config; precedence: flag > config > default):
+
+| Option | Default |
+|--------|---------|
+| `--config`, `-c PATH` | `$ROSETTA_CONFIG`, else `~/.rosetta-llm/config.json` |
+| `--host HOST` | `127.0.0.1` |
+| `--port`, `-p PORT` | `7860` |
+| `--log-level {debug,info,warning,error}` | `info` |
+| `--allow-unauthenticated` | off: a non-loopback host needs `proxy.api_keys` |
+| `--proxy-headers` / `--no-proxy-headers` | off |
+| `--forwarded-allow-ips IPS` | `127.0.0.1` |
+
+`serve` only (server settings, not in the config):
+
+| Option | Default |
+|--------|---------|
+| `--root-path PATH` | none — set when a reverse proxy mounts Rosetta under a sub-path |
+| `--timeout-keep-alive SECONDS` | `5` |
+| `--limit-concurrency N` | unlimited; beyond `N` connections clients get 503 |
+
+A missing, unreadable or invalid config, or an unsafe bind, prints the reason and exits with status 2.
+
 ### Docker
 
 The image binds `0.0.0.0` inside the container, so the mounted config must set `proxy.api_keys` (or `proxy.allow_unauthenticated: true` when another layer authenticates) — otherwise the proxy refuses to start. Publish the port on loopback unless other machines need it:

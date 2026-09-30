@@ -21,12 +21,16 @@ uvx rosetta-llm
 
 # uv tool (persistent)
 uv tool install rosetta-llm
-rosetta-llm --config /path/to/config.json --port 7860
+rosetta-llm serve --config /path/to/config.json --port 7860   # `serve` is the default command
+rosetta-llm check --config /path/to/config.json               # validate + secret-free summary; exit 2 if serve would refuse
+rosetta-llm version
 
-# Docker
-docker run -p 7860:7860 -v ~/.rosetta-llm/config.json:/app/config.json \
+# Docker (config must set proxy.api_keys: the container binds 0.0.0.0)
+docker run -p 127.0.0.1:7860:7860 -v ~/.rosetta-llm/config.json:/app/config.json \
   ghcr.io/lokesh-chimakurthi/rosetta-llm:latest
 ```
+
+CLI (`__main__.py`, argparse only): `serve` and `check` share `--config/-c`, `--host`, `--port/-p`, `--log-level`, `--allow-unauthenticated`, `--proxy-headers/--no-proxy-headers`, `--forwarded-allow-ips`; `serve` adds `--root-path`, `--timeout-keep-alive`, `--limit-concurrency`. Precedence: CLI flag > config > default. A first argument that is not a command means `serve`. Config and exposure failures print the reason and exit 2.
 
 ## Architecture
 

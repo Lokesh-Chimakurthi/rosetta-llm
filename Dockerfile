@@ -47,4 +47,4 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -fsS http://localhost:7860/health || exit 1
 
-CMD ["rosetta-llm", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["rosetta-llm", "serve", "--host", "0.0.0.0", "--port", "7860"]

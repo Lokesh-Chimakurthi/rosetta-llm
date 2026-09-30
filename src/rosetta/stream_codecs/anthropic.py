@@ -301,7 +301,7 @@ async def wrap_with_ping(
             async for ev in events:
                 await queue.put(("event", ev))
             await queue.put(("end", None))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - forwarded to the consumer, which re-raises it
             await queue.put(("error", exc))
 
     task = asyncio.create_task(producer())

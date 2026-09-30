@@ -120,7 +120,7 @@ async def _try_fetch(client: Any, path: str) -> list[dict[str, Any]] | None:
             page, has_more, last_id = await _fetch_page(client, path, after_id=last_id)
             entries.extend(page)
         return entries or None
-    except Exception:
+    except Exception:  # noqa: BLE001 - a failed path falls through to the next candidate path
         return None
 
 
@@ -261,7 +261,7 @@ async def _fetch_all_providers(
                 )
                 if entries:
                     entries_by_provider[key] = entries
-            except Exception:
+            except Exception:  # noqa: BLE001 - one provider's failure must not abort discovery for the rest
                 get_logger().exception("provider_fetch_failed", provider=key)
         else:
             entries_by_provider[key] = []

@@ -69,6 +69,7 @@ def main() -> None:
         log_level=config.log_level,
         access_log=False,
         log_config=None,
+        ws="none",
         proxy_headers=args.proxy_headers,
         forwarded_allow_ips=args.forwarded_allow_ips,
     )

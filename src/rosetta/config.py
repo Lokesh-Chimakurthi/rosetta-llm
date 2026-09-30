@@ -110,7 +110,7 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def validate_providers(self) -> Config:
-        for key, _prov in self.providers.items():
+        for key in self.providers:
             if "/" in key:
                 raise ValueError(f"Provider key '{key}' must not contain '/'")
         return self

@@ -28,7 +28,7 @@ async def _models_refresh_loop(app: FastAPI, interval: float) -> None:
             await refresh_models(app.state.config, app.state.upstream, app.state.model_snapshot)
         except asyncio.CancelledError:
             break
-        except Exception:
+        except Exception:  # noqa: BLE001 - the loop must outlive any single failed refresh; logged with traceback
             from rosetta.observability import get_logger
 
             get_logger().exception("models_refresh_loop_error")

@@ -258,7 +258,7 @@ async def _translate(
     try:
         ir = _PARSE_REQ[inbound_format](payload)
         upstream_body = _RENDER_REQ[provider_format](ir)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - any codec failure on client input becomes a 400, not a 500
         log.error("translate_request_error", error=str(e))
         return JSONResponse(
             content=format_error(inbound_format, 400, "translation_error", str(e)),
@@ -298,7 +298,7 @@ async def _translate(
         record_provider_status(status_dict, provider_key, ok=False)
         try:
             upstream_err = resp.json()
-        except Exception:
+        except ValueError:
             upstream_err = {"raw": resp.text}
         return JSONResponse(
             content=format_error(
@@ -315,7 +315,7 @@ async def _translate(
         upstream_data = resp.json()
         ir_resp = _PARSE_RESP[provider_format](upstream_data)
         out = _RENDER_RESP[inbound_format](ir_resp)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - any codec failure on upstream output becomes a 502 envelope
         log.error("translate_response_error", error=str(e))
         return JSONResponse(
             content=format_error(inbound_format, 502, "translation_error", str(e)),

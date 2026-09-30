@@ -83,6 +83,11 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
 - **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the `UpstreamClient.stream` context and its connection.
 
+### Logging
+- **One line per request at info**: `RequestContextMiddleware` owns the `RequestLog` (contextvar, `request_log()`) and emits `request_completed` exactly once (body finished, client gone, or app raised); `/health` is never logged. Code sets fields on `request_log()` instead of logging its own info lines.
+- **Debug stage events**: `request_received` (from a pass-through receive tap — never buffer the body), `upstream_request`/`upstream_response` (from `upstream.py`), `stream_summary`. Build previews, header copies and counters only when debug is on (`RequestLog.debug`).
+- Credential header values are redacted; startup and error messages never contain provider URLs or keys. README "Logging" documents every event and field.
+
 ### Streaming
 - **Ping injection**: when outbound format is anthropic, `wrap_with_ping()` emits a `ping` event if 15s pass without an upstream event. Uses a producer-task + queue pattern so the source generator is never cancelled mid-await.
 - **Chat stream**: text blocks emit `PartStartEvent(index=0, part_type="text")` before deltas. `reasoning_content` opens a reasoning block with PartStart. Tool calls get unique indices offset from the text block.

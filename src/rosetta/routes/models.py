@@ -336,13 +336,6 @@ async def get_models(
     else:
         models = oai
 
-    get_logger().info(
-        "models_request",
-        format="anthropic" if (is_anthropic or is_claude_code) else "openai",
-        claude_code=is_claude_code,
-        count=len(models),
-    )
-
     # Claude Code always consumes the Anthropic model-page shape, even when it
     # omits the `anthropic-version` header — render it accordingly.
     if is_anthropic or is_claude_code:

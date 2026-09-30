@@ -5,11 +5,12 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+from typing import get_args
 
 import uvicorn
 
 from rosetta.app import create_app
-from rosetta.config import load_config
+from rosetta.config import LogLevel, load_config
 from rosetta.observability import setup_logging
 
 DEFAULT_CONFIG = str(Path.home() / ".rosetta-llm" / "config.json")
@@ -39,6 +40,12 @@ def main() -> None:
         help="Bind port (overrides config)",
     )
     parser.add_argument(
+        "--log-level",
+        choices=get_args(LogLevel),
+        default=None,
+        help="Log level (overrides config; default: info)",
+    )
+    parser.add_argument(
         "--proxy-headers",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -53,12 +60,14 @@ def main() -> None:
     args = parser.parse_args()
 
     config = load_config(args.config)
-    setup_logging(config.log_level)
-
+    # Precedence: CLI flag > config > default.
     if args.host is not None:
         config.host = args.host
     if args.port is not None:
         config.port = args.port
+    if args.log_level is not None:
+        config.log_level = args.log_level
+    setup_logging(config.log_level)
 
     app = create_app(config)
 

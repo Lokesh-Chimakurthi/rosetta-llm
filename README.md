@@ -165,6 +165,44 @@ curl http://localhost:7860/v1/chat/completions \
   }'
 ```
 
+## Logging
+
+Every line is one JSON object on stdout with `event`, `level` and `timestamp`. Lines emitted while serving a request also carry `request_id`, which is echoed in the `x-request-id` response header. An inbound `x-request-id` is reused only when it matches `^[A-Za-z0-9._-]{1,128}$`; otherwise a new id is generated.
+
+`log_level` is `debug`, `info` (default), `warning` or `error`. Precedence: `--log-level` flag > `log_level` in config > `info`.
+
+### Info
+
+- `startup` — once at boot: `version`, `host`, `port`, `log_level`, and `providers` (each `key`, `format`, `discover`). No URLs or secrets.
+- `request_completed` — exactly once per HTTP request except `/health`, when the response body finishes, when the client disconnects, or when the app raises. Fields are present only when set:
+
+| Field | Meaning |
+|-------|---------|
+| `method`, `path`, `status` | The inbound request and the status sent |
+| `duration_ms` | Time from request start to completion |
+| `route` | `passthrough` (same format) or `translate` |
+| `provider`, `model` | Provider key and the model id the client sent |
+| `stream` | Whether the client asked for a stream |
+| `ttft_ms` | Streams only: time to the first body bytes sent |
+| `input_tokens`, `output_tokens` | Translated responses only, from the upstream usage |
+| `error_type` | Set on failure: `invalid_request`, `upstream_connect`, `upstream_timeout`, `upstream_protocol`, `upstream_status`, `translation_error`, or the exception class name |
+| `client_disconnected` | `true` when the client went away before the response finished |
+
+- `models_refreshed` — after each model-list refresh: `total`, `elapsed_ms`.
+
+Unexpected translation failures additionally log one `error`-level line with a traceback (`translate_request_error`, `translate_response_error`, `stream_translate_error`).
+
+### Debug
+
+`request_completed` also carries `inbound_format`, `provider_format`, `upstream_model`, `upstream_status`, `upstream_request_id`, `cache_read_input_tokens`, `cache_creation_input_tokens`, `reasoning_tokens`, `raw_stop_reason`, `dropped_params`, `session_id` (from `x-claude-code-session-id`) and `client`, when set. Four stage events are added per request:
+
+- `request_received` — `headers` (values of `authorization`, `proxy-authorization`, `x-api-key`, `api-key`, `cookie` and `set-cookie` replaced by `***`), `query`, `body_bytes`, `body_preview` (first 2048 characters).
+- `upstream_request` — `provider`, `path`, `upstream_model`, `stream`, `body_bytes`, and the forwarded header names (names only).
+- `upstream_response` — `status`, `ttfb_ms`, `request-id`, every `*ratelimit*` response header, and on status >= 400 `error_preview` (first 1024 characters of the body).
+- `stream_summary` — streams only: `chunks_in` (upstream chunks), `chunks_out` (chunks sent), `dropped_events`, `keepalives`.
+
+Nothing is logged per chunk or per token at any level, and debug detail is only computed when debug is enabled.
+
 ## Environment Variables
 
 | Variable | Purpose |

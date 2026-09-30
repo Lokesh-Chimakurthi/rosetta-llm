@@ -7,9 +7,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from rosetta import __version__
 from rosetta.auth import AuthMiddleware
 from rosetta.config import Config
-from rosetta.observability import RequestContextMiddleware
+from rosetta.observability import RequestContextMiddleware, get_logger
 from rosetta.routes.chat_completions import router as chat_router
 from rosetta.routes.health import router as health_router
 from rosetta.routes.messages import router as messages_router
@@ -29,13 +30,23 @@ async def _models_refresh_loop(app: FastAPI, interval: float) -> None:
         except asyncio.CancelledError:
             break
         except Exception:  # noqa: BLE001 - the loop must outlive any single failed refresh; logged with traceback
-            from rosetta.observability import get_logger
-
             get_logger().exception("models_refresh_loop_error")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    config: Config = app.state.config
+    get_logger().info(
+        "startup",
+        version=__version__,
+        host=config.host,
+        port=config.port,
+        log_level=config.log_level,
+        providers=[
+            {"key": key, "format": prov.format, "discover": prov.is_auto_discover}
+            for key, prov in config.providers.items()
+        ],
+    )
     await app.state.upstream.start()
 
     refresh_task = asyncio.create_task(
@@ -48,9 +59,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     finally:
         loop_task.cancel()
         refresh_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await loop_task
-            await refresh_task
+        for task in (loop_task, refresh_task):
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
         await app.state.upstream.close()
 
 

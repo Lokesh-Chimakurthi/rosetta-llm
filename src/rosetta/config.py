@@ -15,6 +15,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 Format = Literal["openai_chat", "openai_responses", "anthropic"]
+LogLevel = Literal["debug", "info", "warning", "error"]
 
 
 class Capabilities(BaseModel):
@@ -105,7 +106,7 @@ class Config(BaseModel):
     host: str = "0.0.0.0"  # noqa: S104 - all-interfaces bind is intentional for Docker deployments
     port: int = 7860
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
-    log_level: Literal["debug", "info", "warning", "error"] = "info"
+    log_level: LogLevel = "info"
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
 
     @model_validator(mode="after")

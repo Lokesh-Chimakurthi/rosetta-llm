@@ -7,6 +7,7 @@ no httpx2 type crosses this module's boundary.
 from __future__ import annotations
 
 import ssl
+import time
 from collections.abc import AsyncGenerator, AsyncIterator, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
@@ -18,6 +19,12 @@ import orjson
 
 from rosetta import __version__
 from rosetta.config import Config
+from rosetta.observability import (
+    debug_enabled,
+    get_logger,
+    request_log,
+    upstream_response_fields,
+)
 
 type TransportErrorKind = Literal["connect", "timeout", "protocol"]
 
@@ -82,6 +89,40 @@ def _transport_error(provider_key: str, exc: httpx2.RequestError) -> UpstreamErr
     if isinstance(exc, httpx2.ConnectError | httpx2.ProxyError | httpx2.UnsupportedProtocol):
         return UpstreamError(provider_key, "connect")
     return UpstreamError(provider_key, "protocol")
+
+
+def _ms_since(started: float) -> float:
+    return round((time.perf_counter() - started) * 1000, 1)
+
+
+def _log_request(
+    provider_key: str, request: httpx2.Request, headers: Mapping[str, str], *, stream: bool
+) -> bool:
+    """Emit `upstream_request` at debug; returns whether debug is on."""
+    if not debug_enabled():
+        return False
+    get_logger().debug(
+        "upstream_request",
+        provider=provider_key,
+        path=request.url.path,
+        upstream_model=request_log().upstream_model,
+        stream=stream,
+        body_bytes=len(request.content),
+        headers=sorted(k.lower() for k in headers),
+    )
+    return True
+
+
+def _record_response(
+    status: int, headers: Mapping[str, str], ttfb_ms: float, body: bytes | None, *, debug: bool
+) -> None:
+    rec = request_log()
+    rec.upstream_status = status
+    rec.upstream_request_id = headers.get("request-id") or headers.get("x-request-id")
+    if debug:
+        get_logger().debug(
+            "upstream_response", **upstream_response_fields(status, headers, ttfb_ms, body)
+        )
 
 
 class UpstreamStream:
@@ -177,14 +218,10 @@ class UpstreamClient:
         Raises:
             UpstreamError: on connect, timeout or protocol failure.
         """
-        client = self._client(provider_key)
-        try:
-            resp = await client.post(
-                path, content=body, headers={"content-type": "application/json", **headers}
-            )
-        except httpx2.RequestError as exc:
-            raise _transport_error(provider_key, exc) from exc
-        return UpstreamResponse(resp.status_code, _lower_headers(resp.headers), resp.content)
+        request = self._client(provider_key).build_request(
+            "POST", path, content=body, headers={"content-type": "application/json", **headers}
+        )
+        return await self._send_and_read(provider_key, request, headers, stream=False)
 
     async def get(
         self,
@@ -203,14 +240,35 @@ class UpstreamClient:
             UpstreamError: on connect, timeout or protocol failure.
         """
         client = self._client(provider_key)
+        if timeout is None:
+            request = client.build_request("GET", path, params=params)
+        else:
+            request = client.build_request("GET", path, params=params, timeout=timeout)
+        return await self._send_and_read(provider_key, request, {}, stream=False)
+
+    async def _send_and_read(
+        self,
+        provider_key: str,
+        request: httpx2.Request,
+        headers: Mapping[str, str],
+        *,
+        stream: bool,
+    ) -> UpstreamResponse:
+        client = self._client(provider_key)
+        debug = _log_request(provider_key, request, headers, stream=stream)
+        started = time.perf_counter()
         try:
-            if timeout is None:
-                resp = await client.get(path, params=params)
-            else:
-                resp = await client.get(path, params=params, timeout=timeout)
+            resp = await client.send(request, stream=True)
+            ttfb_ms = _ms_since(started)
+            try:
+                body = await resp.aread()
+            finally:
+                await resp.aclose()
         except httpx2.RequestError as exc:
             raise _transport_error(provider_key, exc) from exc
-        return UpstreamResponse(resp.status_code, _lower_headers(resp.headers), resp.content)
+        result = UpstreamResponse(resp.status_code, _lower_headers(resp.headers), body)
+        _record_response(result.status, result.headers, ttfb_ms, body, debug=debug)
+        return result
 
     def stream(
         self, provider_key: str, path: str, body: bytes, headers: Mapping[str, str]
@@ -244,17 +302,22 @@ class UpstreamClient:
                 **headers,
             },
         )
+        debug = _log_request(provider_key, request, headers, stream=True)
+        started = time.perf_counter()
         try:
             response = await client.send(request, stream=True)
         except httpx2.RequestError as exc:
             raise _transport_error(provider_key, exc) from exc
+        ttfb_ms = _ms_since(started)
         stream = UpstreamStream(provider_key, response)
         try:
             if response.status_code >= 400:
                 err_body = await stream._read_capped(_STREAM_ERROR_BODY_LIMIT)
+                _record_response(stream.status, stream.headers, ttfb_ms, err_body, debug=debug)
                 raise UpstreamStatusError(
                     provider_key, UpstreamResponse(stream.status, stream.headers, err_body)
                 )
+            _record_response(stream.status, stream.headers, ttfb_ms, None, debug=debug)
             yield stream
         finally:
             await stream.aclose()

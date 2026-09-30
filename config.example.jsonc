@@ -17,7 +17,9 @@
     "api_keys": ["sk-proxy-XXXX"]
   },
 
-  // Logging: "debug" | "info" | "warning" | "error"
+  // Logging: "debug" | "info" | "warning" | "error" (default "info").
+  // --log-level overrides it. info: one request_completed line per request;
+  // debug adds stage events. See README "Logging".
   "log_level": "info",
 
   // =============================================================================

@@ -1,19 +1,46 @@
-"""End-to-end smoke tests via FastAPI TestClient with mocked upstream."""
+"""End-to-end smoke tests via FastAPI TestClient with an in-memory upstream."""
 
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Iterator
 from typing import Any
 
-import httpx
 import pytest
-import respx
 from fastapi.testclient import TestClient
 
-from rosetta.app import create_app
-from rosetta.config import Config
+from tests.support.upstream import FakeUpstream, build_client
+
+_CONFIG: dict[str, Any] = {
+    "providers": {
+        "abc": {
+            "format": "openai_chat",
+            "base_url": "https://upstream.test/v1",
+            "api_key": "sk-up",
+            "models": [{"id": "m1"}],
+        },
+        "anth": {
+            "format": "anthropic",
+            "base_url": "https://anth.test/v1",
+            "api_key": "sk-up",
+            "models": [{"id": "claude"}],
+        },
+    },
+}
+
+_CHAT_COMPLETION: dict[str, Any] = {
+    "id": "chatcmpl-up",
+    "object": "chat.completion",
+    "model": "m1",
+    "choices": [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "hi"},
+            "finish_reason": "stop",
+        }
+    ],
+    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+}
 
 
 def _parse_sse(raw: bytes) -> list[tuple[str, dict[str, Any]]]:
@@ -33,28 +60,13 @@ def _parse_sse(raw: bytes) -> list[tuple[str, dict[str, Any]]]:
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
-    os.environ["UP_KEY"] = "sk-up"
-    cfg = Config.model_validate(
-        {
-            "providers": {
-                "abc": {
-                    "format": "openai_chat",
-                    "base_url": "https://upstream.test/v1",
-                    "api_key_env": "UP_KEY",
-                    "models": [{"id": "m1"}],
-                },
-                "anth": {
-                    "format": "anthropic",
-                    "base_url": "https://anth.test/v1",
-                    "api_key_env": "UP_KEY",
-                    "models": [{"id": "claude"}],
-                },
-            },
-        }
-    )
-    app = create_app(cfg)
-    with TestClient(app) as c:
+def fake() -> FakeUpstream:
+    return FakeUpstream()
+
+
+@pytest.fixture
+def client(fake: FakeUpstream) -> Iterator[TestClient]:
+    with build_client(_CONFIG, fake) as c:
         yield c
 
 
@@ -79,36 +91,21 @@ def test_count_tokens_local(client: TestClient) -> None:
     assert r.json()["input_tokens"] >= 1
 
 
-def test_chat_completions_passthrough(client: TestClient) -> None:
-    upstream_resp = {
-        "id": "chatcmpl-up",
-        "object": "chat.completion",
-        "model": "m1",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "hi"},
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-    }
-    with respx.mock(base_url="https://upstream.test/v1") as mock:
-        mock.post("/chat/completions").mock(return_value=httpx.Response(200, json=upstream_resp))
-        r = client.post(
-            "/v1/chat/completions",
-            json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
-        )
+def test_chat_completions_passthrough(client: TestClient, fake: FakeUpstream) -> None:
+    fake.add_json("abc", "POST", "/chat/completions", 200, _CHAT_COMPLETION)
+    r = client.post(
+        "/v1/chat/completions",
+        json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
+    )
     assert r.status_code == 200
-    assert r.json()["choices"][0]["message"]["content"] == "hi"
+    assert r.json() == _CHAT_COMPLETION
+    assert fake.requests[-1].json()["model"] == "m1"
 
 
-def test_anthropic_to_chat_translation(client: TestClient) -> None:
+def test_anthropic_to_chat_translation(client: TestClient, fake: FakeUpstream) -> None:
     """Anthropic /v1/messages → openai_chat provider should translate both ways."""
     upstream_resp = {
-        "id": "chatcmpl-x",
-        "object": "chat.completion",
-        "model": "m1",
+        **_CHAT_COMPLETION,
         "choices": [
             {
                 "index": 0,
@@ -116,22 +113,18 @@ def test_anthropic_to_chat_translation(client: TestClient) -> None:
                 "finish_reason": "stop",
             }
         ],
-        "usage": {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5},
     }
-    with respx.mock(base_url="https://upstream.test/v1") as mock:
-        route = mock.post("/chat/completions").mock(
-            return_value=httpx.Response(200, json=upstream_resp)
-        )
-        r = client.post(
-            "/v1/messages",
-            json={
-                "model": "abc/m1",
-                "max_tokens": 16,
-                "messages": [{"role": "user", "content": "hello"}],
-            },
-        )
+    fake.add_json("abc", "POST", "/chat/completions", 200, upstream_resp)
+    r = client.post(
+        "/v1/messages",
+        json={
+            "model": "abc/m1",
+            "max_tokens": 16,
+            "messages": [{"role": "user", "content": "hello"}],
+        },
+    )
 
-    assert route.called, "should have hit /chat/completions"
+    assert [(q.provider_key, q.path) for q in fake.requests] == [("abc", "/chat/completions")]
     assert r.status_code == 200
     body = r.json()
     assert body["type"] == "message"
@@ -146,20 +139,17 @@ def test_unknown_provider_400(client: TestClient) -> None:
     assert "error" in r.json()
 
 
-def test_upstream_error_passthrough_format(client: TestClient) -> None:
+def test_upstream_error_passthrough_format(client: TestClient, fake: FakeUpstream) -> None:
     """Upstream 4xx should be wrapped in inbound-format error envelope when translating."""
-    with respx.mock(base_url="https://upstream.test/v1") as mock:
-        mock.post("/chat/completions").mock(
-            return_value=httpx.Response(429, json={"error": {"message": "rate limited"}}),
-        )
-        r = client.post(
-            "/v1/messages",
-            json={
-                "model": "abc/m1",
-                "max_tokens": 16,
-                "messages": [{"role": "user", "content": "hi"}],
-            },
-        )
+    fake.add_json("abc", "POST", "/chat/completions", 429, {"error": {"message": "rate limited"}})
+    r = client.post(
+        "/v1/messages",
+        json={
+            "model": "abc/m1",
+            "max_tokens": 16,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    )
     assert r.status_code == 429
     body = r.json()
     # Must be Anthropic-shaped because /v1/messages was hit.
@@ -167,82 +157,44 @@ def test_upstream_error_passthrough_format(client: TestClient) -> None:
     assert body["error"]["message"] == "rate limited"
 
 
-def test_auth_required_when_configured() -> None:
-    os.environ["UP_KEY"] = "sk-up"
-    cfg = Config.model_validate(
-        {
-            "proxy": {"api_keys": ["sk-proxy"]},
-            "providers": {
-                "abc": {
-                    "format": "openai_chat",
-                    "base_url": "https://upstream.test/v1",
-                    "api_key_env": "UP_KEY",
-                    "models": [{"id": "m1"}],
-                },
-            },
-        }
-    )
-    app = create_app(cfg)
-    with TestClient(app) as c:
+def test_auth_required_when_configured(fake: FakeUpstream) -> None:
+    config = {**_CONFIG, "proxy": {"api_keys": ["sk-proxy"]}}
+    fake.add_json("abc", "POST", "/chat/completions", 200, _CHAT_COMPLETION)
+    with build_client(config, fake) as c:
         r = c.post("/v1/chat/completions", json={"model": "abc/m1", "messages": []})
         assert r.status_code == 401
-        with respx.mock(base_url="https://upstream.test/v1") as mock:
-            mock.post("/chat/completions").mock(
-                return_value=httpx.Response(
-                    200,
-                    json={
-                        "id": "x",
-                        "object": "chat.completion",
-                        "model": "m1",
-                        "choices": [
-                            {
-                                "index": 0,
-                                "message": {"role": "assistant", "content": "ok"},
-                                "finish_reason": "stop",
-                            }
-                        ],
-                        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-                    },
-                ),
-            )
-            r = c.post(
-                "/v1/chat/completions",
-                json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
-                headers={"Authorization": "Bearer sk-proxy"},
-            )
-        assert r.status_code != 401
+        r = c.post(
+            "/v1/chat/completions",
+            json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
+            headers={"Authorization": "Bearer sk-proxy"},
+        )
+        assert r.status_code == 200
 
 
-def test_chat_stream_passthrough(client: TestClient) -> None:
+def test_chat_stream_passthrough(client: TestClient, fake: FakeUpstream) -> None:
     upstream_sse = (
         b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{"role":"assistant"}}]}\n\n'
         b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{"content":"hi"}}]}\n\n'
         b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n'
         b"data: [DONE]\n\n"
     )
-    with respx.mock(base_url="https://upstream.test/v1") as mock:
-        mock.post("/chat/completions").mock(
-            return_value=httpx.Response(
-                200,
-                content=upstream_sse,
-                headers={"content-type": "text/event-stream"},
-            ),
-        )
-        with client.stream(
-            "POST",
-            "/v1/chat/completions",
-            json={
-                "model": "abc/m1",
-                "stream": True,
-                "messages": [{"role": "user", "content": "hi"}],
-            },
-        ) as r:
-            chunks = b"".join(r.iter_bytes())
-    assert b"[DONE]" in chunks
-    assert b"hi" in chunks
+    fake.add_sse("abc", "/chat/completions", upstream_sse)
+    with client.stream(
+        "POST",
+        "/v1/chat/completions",
+        json={
+            "model": "abc/m1",
+            "stream": True,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    ) as r:
+        chunks = b"".join(r.iter_bytes())
+    assert chunks == upstream_sse
 
 
-def test_anthropic_stream_translation_carries_usage(client: TestClient) -> None:
+def test_anthropic_stream_translation_carries_usage(
+    client: TestClient, fake: FakeUpstream
+) -> None:
     """Anthropic-inbound streaming translation: one usage-bearing terminal message_delta."""
     upstream_sse = (
         b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{"role":"assistant"}}]}\n\n'
@@ -251,28 +203,21 @@ def test_anthropic_stream_translation_carries_usage(client: TestClient) -> None:
         b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":5,"cache_write_tokens":0}}}\n\n'
         b"data: [DONE]\n\n"
     )
-    with respx.mock(base_url="https://upstream.test/v1") as mock:
-        route = mock.post("/chat/completions").mock(
-            return_value=httpx.Response(
-                200,
-                content=upstream_sse,
-                headers={"content-type": "text/event-stream"},
-            ),
-        )
-        with client.stream(
-            "POST",
-            "/v1/messages",
-            json={
-                "model": "abc/m1",
-                "max_tokens": 16,
-                "stream": True,
-                "messages": [{"role": "user", "content": "hi"}],
-            },
-        ) as r:
-            body = b"".join(r.iter_bytes())
+    fake.add_sse("abc", "/chat/completions", upstream_sse)
+    with client.stream(
+        "POST",
+        "/v1/messages",
+        json={
+            "model": "abc/m1",
+            "max_tokens": 16,
+            "stream": True,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    ) as r:
+        body = b"".join(r.iter_bytes())
 
     # The upstream saw the ask for usage.
-    sent = json.loads(route.calls.last.request.content)
+    sent = fake.requests[-1].json()
     assert sent["stream_options"] == {"include_usage": True}
 
     events = _parse_sse(body)
@@ -295,7 +240,9 @@ def test_anthropic_stream_translation_carries_usage(client: TestClient) -> None:
     }
 
 
-def test_anthropic_stream_translation_plain_usage_no_cache(client: TestClient) -> None:
+def test_anthropic_stream_translation_plain_usage_no_cache(
+    client: TestClient, fake: FakeUpstream
+) -> None:
     """Plain case: no cached tokens — input_tokens passes through unchanged."""
     upstream_sse = (
         b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{"content":"hi"}}]}\n\n'
@@ -303,25 +250,18 @@ def test_anthropic_stream_translation_plain_usage_no_cache(client: TestClient) -
         b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[],"usage":{"prompt_tokens":7,"completion_tokens":3}}\n\n'
         b"data: [DONE]\n\n"
     )
-    with respx.mock(base_url="https://upstream.test/v1") as mock:
-        mock.post("/chat/completions").mock(
-            return_value=httpx.Response(
-                200,
-                content=upstream_sse,
-                headers={"content-type": "text/event-stream"},
-            ),
-        )
-        with client.stream(
-            "POST",
-            "/v1/messages",
-            json={
-                "model": "abc/m1",
-                "max_tokens": 16,
-                "stream": True,
-                "messages": [{"role": "user", "content": "hi"}],
-            },
-        ) as r:
-            body = b"".join(r.iter_bytes())
+    fake.add_sse("abc", "/chat/completions", upstream_sse)
+    with client.stream(
+        "POST",
+        "/v1/messages",
+        json={
+            "model": "abc/m1",
+            "max_tokens": 16,
+            "stream": True,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    ) as r:
+        body = b"".join(r.iter_bytes())
 
     events = _parse_sse(body)
     names = [name for name, _ in events]
@@ -335,49 +275,27 @@ def test_anthropic_stream_translation_plain_usage_no_cache(client: TestClient) -
     assert usage.get("cache_read_input_tokens", 0) == 0
 
 
-def test_env_resolved_custom_header_reaches_upstream() -> None:
+def test_env_resolved_custom_header_reaches_upstream(
+    fake: FakeUpstream, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """A header declared via extra_headers_env must be sent upstream after env resolution."""
-    os.environ["UP_KEY"] = "sk-up"
-    os.environ["ABC_SECRET_HEADER"] = "secret-from-env"
-    cfg = Config.model_validate(
-        {
-            "providers": {
-                "abc": {
-                    "format": "openai_chat",
-                    "base_url": "https://upstream.test/v1",
-                    "api_key_env": "UP_KEY",
-                    "extra_headers": {"X-Literal-Header": "literal-val"},
-                    "extra_headers_env": {"X-Secret-Header": "ABC_SECRET_HEADER"},
-                    "models": [{"id": "m1"}],
-                },
+    monkeypatch.setenv("ABC_SECRET_HEADER", "secret-from-env")
+    config = {
+        "providers": {
+            "abc": {
+                **_CONFIG["providers"]["abc"],
+                "extra_headers": {"X-Literal-Header": "literal-val"},
+                "extra_headers_env": {"X-Secret-Header": "ABC_SECRET_HEADER"},
             },
-        }
-    )
-    app = create_app(cfg)
-    with TestClient(app) as c:
-        upstream_resp = {
-            "id": "chatcmpl-h",
-            "object": "chat.completion",
-            "model": "m1",
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {"role": "assistant", "content": "ok"},
-                    "finish_reason": "stop",
-                }
-            ],
-            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-        }
-        with respx.mock(base_url="https://upstream.test/v1") as mock:
-            route = mock.post("/chat/completions").mock(
-                return_value=httpx.Response(200, json=upstream_resp)
-            )
-            r = c.post(
-                "/v1/chat/completions",
-                json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
-            )
-    assert route.called, "should have hit /chat/completions"
+        },
+    }
+    fake.add_json("abc", "POST", "/chat/completions", 200, _CHAT_COMPLETION)
+    with build_client(config, fake) as c:
+        r = c.post(
+            "/v1/chat/completions",
+            json={"model": "abc/m1", "messages": [{"role": "user", "content": "hi"}]},
+        )
     assert r.status_code == 200
-    sent_headers = route.calls.last.request.headers
+    sent_headers = fake.requests[-1].headers
     assert sent_headers["x-secret-header"] == "secret-from-env"
     assert sent_headers["x-literal-header"] == "literal-val"

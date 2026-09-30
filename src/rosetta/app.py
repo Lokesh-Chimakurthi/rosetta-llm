@@ -36,7 +36,6 @@ async def _models_refresh_loop(app: FastAPI, interval: float) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    app.state.upstream = UpstreamClient(app.state.config.providers)
     await app.state.upstream.start()
 
     refresh_task = asyncio.create_task(
@@ -55,9 +54,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         await app.state.upstream.close()
 
 
-def create_app(config: Config) -> FastAPI:
+def create_app(config: Config, *, upstream: UpstreamClient | None = None) -> FastAPI:
+    """Build the ASGI app.
+
+    Args:
+        upstream: Provider client to use instead of one built from `config`;
+            it is started and closed by the app's lifespan.
+    """
     app = FastAPI(lifespan=lifespan)
     app.state.config = config
+    app.state.upstream = upstream if upstream is not None else UpstreamClient(config)
     app.state.provider_status = {}
     app.state.model_snapshot = {}
     app.state.model_refresh_lock = asyncio.Lock()

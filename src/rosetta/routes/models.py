@@ -22,7 +22,7 @@ from rosetta.config import ProviderConfig
 from rosetta.observability import get_logger
 from rosetta.routes.deps import ConfigDep
 from rosetta.routes.schemas import AnthropicModelPageResponse, OpenAIModelListResponse
-from rosetta.upstream import UpstreamClient
+from rosetta.upstream import UpstreamClient, UpstreamStatusError
 
 router = APIRouter(prefix="/v1", tags=["models"])
 
@@ -64,15 +64,17 @@ def _synthesize_caps(m: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _fetch_page(
-    client: Any,
+    upstream: UpstreamClient,
+    provider_key: str,
     path: str,
     after_id: str | None = None,
 ) -> tuple[list[dict[str, Any]], bool, str | None]:
     params: dict[str, str] = {}
     if after_id:
         params["after_id"] = after_id
-    resp = await client.get(path, params=params or None)
-    resp.raise_for_status()
+    resp = await upstream.get(provider_key, path, params=params or None)
+    if not resp.ok:
+        raise UpstreamStatusError(provider_key, resp)
     data = resp.json()
     entries: list[dict[str, Any]] = []
     for m in data.get("data", []):
@@ -113,11 +115,15 @@ async def _fetch_page(
     return entries, bool(data.get("has_more", False)), data.get("last_id")
 
 
-async def _try_fetch(client: Any, path: str) -> list[dict[str, Any]] | None:
+async def _try_fetch(
+    upstream: UpstreamClient, provider_key: str, path: str
+) -> list[dict[str, Any]] | None:
     try:
-        entries, has_more, last_id = await _fetch_page(client, path)
+        entries, has_more, last_id = await _fetch_page(upstream, provider_key, path)
         while has_more and last_id:
-            page, has_more, last_id = await _fetch_page(client, path, after_id=last_id)
+            page, has_more, last_id = await _fetch_page(
+                upstream, provider_key, path, after_id=last_id
+            )
             entries.extend(page)
         return entries or None
     except Exception:  # noqa: BLE001 - a failed path falls through to the next candidate path
@@ -255,9 +261,8 @@ async def _fetch_all_providers(
     async def _fetch_one(key: str, provider: ProviderConfig) -> None:
         if provider.is_auto_discover:
             try:
-                client = upstream.get_client(key)
-                entries = await _try_fetch(client, "/models") or await _try_fetch(
-                    client, "/v1/models"
+                entries = await _try_fetch(upstream, key, "/models") or await _try_fetch(
+                    upstream, key, "/v1/models"
                 )
                 if entries:
                     entries_by_provider[key] = entries

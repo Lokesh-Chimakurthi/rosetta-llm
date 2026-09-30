@@ -39,7 +39,8 @@ docker run -p 7860:7860 -v ~/.rosetta-llm/config.json:/app/config.json \
 ## Key design decisions
 
 - **uv project** — always use `uv run <cmd>`, never `.venv/bin/python` directly.
-- **No pydantic-ai** — pure httpx async. pydantic-ai's agent abstraction obscures wire-level fidelity.
+- **No pydantic-ai** — pure httpx2 async. pydantic-ai's agent abstraction obscures wire-level fidelity.
+- **Upstream seam** — `upstream.py` is the only module that imports httpx2. Everything else uses `UpstreamClient.post/get/stream`, `UpstreamResponse`, `UpstreamStream`, `UpstreamError` (connect/timeout/protocol, message never names the host) and `UpstreamStatusError` (stream status >= 400, raised on enter). Stream requests send `accept-encoding: identity`; all providers share one TLS context (system trust store via truststore).
 - **No BaseHTTPMiddleware** — blocks SSE streaming. Auth and request-id are pure ASGI middleware.
 - **Dockerfile** — multi-stage build using uv. Project is installed into the venv; CMD uses the `rosetta-llm` CLI. Config is mounted at `/app/config.json` via the `ROSETTA_CONFIG` env var.
 - **Dockerfile.hf** — Hugging Face Spaces variant. Pulls the GHCR image directly (`FROM ghcr.io/...`) — no clone, no build. Just COPY your config.json in.
@@ -80,7 +81,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Header forwarding**: `anthropic-beta`, `anthropic-version`, `x-claude-code-session-id` extracted from inbound request and forwarded to every upstream call.
 - **Model resolution**: `<provider_key>/<model_name>` split on first `/`. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved.
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
-- **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the upstream `httpx.stream` context.
+- **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the `UpstreamClient.stream` context and its connection.
 
 ### Streaming
 - **Ping injection**: when outbound format is anthropic, `wrap_with_ping()` emits a `ping` event if 15s pass without an upstream event. Uses a producer-task + queue pattern so the source generator is never cancelled mid-await.
@@ -123,6 +124,8 @@ Model id format: `<provider_key>/<model_name>` (e.g., `anthropic/claude-opus-4-7
 ## Tests
 
 - `tests/codecs/test_roundtrip.py` — codec property tests: Anthropic round-trip, tool-use input as object, tool-result ordering, Chat→Anthropic tool-call ID preservation, reasoning lossless round-trip (encrypted_content+id via signature), response round-trip, unknown-param passthrough, max_tokens synthesis, streaming partial-JSON buffering.
-- `tests/test_e2e.py` — FastAPI TestClient + respx: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough.
+- `tests/support/upstream.py` — `FakeUpstream` (an httpx2 transport routing by provider key and path, recording every request) and `build_client(config, fake)`. Tests never patch the network.
+- `tests/test_upstream.py` — `UpstreamClient` contract: error-status streams, capped error body, stream headers, transport-error kinds without host leakage.
+- `tests/test_e2e.py` — FastAPI TestClient + FakeUpstream: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough.
 
 Run with: `uv run pytest tests/ -q`.

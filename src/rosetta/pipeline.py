@@ -10,7 +10,7 @@ Translation invariants:
     state machine consumes IR events and emits target SSE.
   - Ping injection is added only when outbound format == anthropic.
   - Cancellation: a client disconnect aborts the streaming generator,
-    which exits the upstream `httpx.stream` context and closes the
+    which exits the `UpstreamClient.stream` context and closes the
     connection.
 """
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
-import httpx
+import orjson
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
@@ -35,7 +35,7 @@ from rosetta.routes.health import record_provider_status
 from rosetta.stream_codecs import anthropic as ac_stream
 from rosetta.stream_codecs import openai_chat as oc_stream
 from rosetta.stream_codecs import openai_responses as or_stream
-from rosetta.upstream import UpstreamClient
+from rosetta.upstream import UpstreamClient, UpstreamError, UpstreamStatusError
 
 type ParseRequest = Callable[[dict[str, Any]], CanonicalRequest]
 type RenderRequest = Callable[[CanonicalRequest], dict[str, Any]]
@@ -190,21 +190,26 @@ async def _passthrough(
     status_dict: dict[str, Any],
 ) -> Response:
     log.info("passthrough", stream=is_stream)
+    body_bytes = orjson.dumps(body)
     if is_stream:
-        gen = upstream.stream(provider_key, upstream_path, body, extra_headers=fwd_headers)
         return StreamingResponse(
             _passthrough_stream_with_recovery(
-                gen, request, provider_key, inbound_format, status_dict
+                upstream,
+                provider_key,
+                upstream_path,
+                body_bytes,
+                fwd_headers,
+                request,
+                inbound_format,
+                status_dict,
             ),
             media_type="text/event-stream",
             headers=_STREAM_HEADERS,
         )
     try:
-        resp = await upstream.request_json(
-            provider_key, upstream_path, body, extra_headers=fwd_headers
-        )
-        record_provider_status(status_dict, provider_key, ok=resp.is_success)
-    except httpx.HTTPError as e:
+        resp = await upstream.post(provider_key, upstream_path, body_bytes, fwd_headers)
+        record_provider_status(status_dict, provider_key, ok=resp.ok)
+    except UpstreamError as e:
         log.error("upstream_error", error=str(e))
         record_provider_status(status_dict, provider_key, ok=False)
         return JSONResponse(
@@ -212,30 +217,42 @@ async def _passthrough(
             status_code=502,
         )
     return Response(
-        content=resp.content,
-        status_code=resp.status_code,
+        content=resp.body,
+        status_code=resp.status,
         media_type=resp.headers.get("content-type", "application/json"),
     )
 
 
+def _stream_error_message(err: UpstreamError | UpstreamStatusError) -> str:
+    if isinstance(err, UpstreamStatusError):
+        body = err.response.body.decode(errors="replace")[:512]
+        return f"Upstream returned {err.response.status}: {body}"
+    return str(err)
+
+
 async def _passthrough_stream_with_recovery(
-    gen: AsyncIterator[bytes],
-    request: Request,
+    upstream: UpstreamClient,
     provider_key: str,
+    upstream_path: str,
+    body: bytes,
+    fwd_headers: dict[str, str],
+    request: Request,
     inbound_format: str,
     status_dict: dict[str, Any],
 ) -> AsyncIterator[bytes]:
     log = get_logger()
     try:
-        async for chunk in gen:
-            if await request.is_disconnected():
-                break
-            yield chunk
+        async with upstream.stream(provider_key, upstream_path, body, fwd_headers) as stream:
+            async for chunk in stream.iter_bytes():
+                if await request.is_disconnected():
+                    break
+                yield chunk
         record_provider_status(status_dict, provider_key, ok=True)
-    except httpx.HTTPError as e:
-        log.error("stream_upstream_error", error=str(e))
+    except (UpstreamError, UpstreamStatusError) as e:
+        message = _stream_error_message(e)
+        log.error("stream_upstream_error", error=message)
         record_provider_status(status_dict, provider_key, ok=False)
-        yield format_stream_error(inbound_format, "upstream_error", str(e))
+        yield format_stream_error(inbound_format, "upstream_error", message)
 
 
 async def _translate(
@@ -283,10 +300,10 @@ async def _translate(
         )
 
     try:
-        resp = await upstream.request_json(
-            provider_key, upstream_path, upstream_body, extra_headers=fwd_headers
+        resp = await upstream.post(
+            provider_key, upstream_path, orjson.dumps(upstream_body), fwd_headers
         )
-    except httpx.HTTPError as e:
+    except UpstreamError as e:
         log.error("upstream_error", error=str(e))
         record_provider_status(status_dict, provider_key, ok=False)
         return JSONResponse(
@@ -294,20 +311,20 @@ async def _translate(
             status_code=502,
         )
 
-    if not resp.is_success:
+    if not resp.ok:
         record_provider_status(status_dict, provider_key, ok=False)
         try:
             upstream_err = resp.json()
         except ValueError:
-            upstream_err = {"raw": resp.text}
+            upstream_err = {"raw": resp.body.decode(errors="replace")}
         return JSONResponse(
             content=format_error(
                 inbound_format,
-                resp.status_code,
+                resp.status,
                 "upstream_error",
                 _extract_error_message(upstream_err),
             ),
-            status_code=resp.status_code,
+            status_code=resp.status,
         )
 
     record_provider_status(status_dict, provider_key, ok=True)
@@ -337,23 +354,24 @@ async def _translate_stream(
 ) -> AsyncIterator[bytes]:
     log = get_logger()
     try:
-        upstream_bytes = upstream.stream(
-            provider_key, upstream_path, payload, extra_headers=fwd_headers
-        )
-        ir_events = _STREAM_PARSE[provider_format](upstream_bytes)
-        if inbound_format == "anthropic":
-            ir_events = ac_stream.wrap_with_ping(ir_events)
-        out_bytes = _STREAM_RENDER[inbound_format](ir_events)
+        async with upstream.stream(
+            provider_key, upstream_path, orjson.dumps(payload), fwd_headers
+        ) as stream:
+            ir_events = _STREAM_PARSE[provider_format](stream.iter_bytes())
+            if inbound_format == "anthropic":
+                ir_events = ac_stream.wrap_with_ping(ir_events)
+            out_bytes = _STREAM_RENDER[inbound_format](ir_events)
 
-        async for chunk in out_bytes:
-            if await request.is_disconnected():
-                break
-            yield chunk
+            async for chunk in out_bytes:
+                if await request.is_disconnected():
+                    break
+                yield chunk
         record_provider_status(status_dict, provider_key, ok=True)
-    except httpx.HTTPError as e:
-        log.error("stream_upstream_error", error=str(e))
+    except (UpstreamError, UpstreamStatusError) as e:
+        message = _stream_error_message(e)
+        log.error("stream_upstream_error", error=message)
         record_provider_status(status_dict, provider_key, ok=False)
-        yield format_stream_error(inbound_format, "upstream_error", str(e))
+        yield format_stream_error(inbound_format, "upstream_error", message)
     except Exception as e:
         log.exception("stream_translate_error")
         yield format_stream_error(inbound_format, "translation_error", str(e))

@@ -32,8 +32,8 @@ def served(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     """Captures uvicorn.run kwargs instead of starting a server."""
     calls: list[dict[str, Any]] = []
 
-    def run(app: object, **kwargs: Any) -> None:
-        calls.append(kwargs)
+    def run(app: Any, **kwargs: Any) -> None:
+        calls.append({**kwargs, "config": app.state.config})
 
     monkeypatch.setattr("rosetta.__main__.uvicorn.run", run)
     return calls
@@ -97,6 +97,30 @@ def test_flag_overrides_config_overrides_default(
 ) -> None:
     main(["serve", "--config", _config(tmp_path, **config), *flags])
     assert served[0][kwarg] == expected
+
+
+@pytest.mark.parametrize("name", ["completed", "headers", "bodies"])
+@pytest.mark.parametrize(
+    ("config_value", "flag", "expected"),
+    [
+        (None, None, False),
+        (True, None, True),
+        (True, "--no-log-{}", False),
+        (False, "--log-{}", True),
+    ],
+)
+def test_log_flags_override_config_override_default(
+    name: str,
+    config_value: bool | None,
+    flag: str | None,
+    expected: bool,
+    tmp_path: Path,
+    served: list[dict[str, Any]],
+) -> None:
+    config = {} if config_value is None else {f"log_{name}": config_value}
+    flags = [] if flag is None else [flag.format(name)]
+    main(["serve", "--config", _config(tmp_path, **config), *flags])
+    assert getattr(served[0]["config"], f"log_{name}") is expected
 
 
 @pytest.mark.parametrize(

@@ -26,9 +26,14 @@
   },
 
   // Logging: "debug" | "info" | "warning" | "error" (default "info").
-  // --log-level overrides it. info: one request_completed line per request;
-  // debug adds stage events. See README "Logging".
+  // info logs request_started per request; debug adds upstream_request/_response.
+  // Each has a --flag / --no-flag override. See README "Logging".
   "log_level": "info",
+  // Also log request_completed (status, latency, tokens) for every request.
+  "log_completed": false,
+  // Debug only: add headers (credentials redacted) / bodies (first 64 KiB).
+  "log_headers": false,
+  "log_bodies": false,
 
   // =============================================================================
   // Provider definitions. Keys are the prefix used in model ids.

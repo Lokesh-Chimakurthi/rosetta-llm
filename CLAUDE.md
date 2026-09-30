@@ -96,8 +96,8 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - FastAPI's default `/docs` (Swagger UI assets from its CDN) and `/openapi.json`; ReDoc is off. Every route declares `summary`, `description` and its error statuses via `routes.schemas.error_responses(fmt, ...)`, which picks the envelope model for the route's format.
 
 ### Logging
-- **One line per request at info**: `RequestContextMiddleware` owns the `RequestLog` (contextvar, `request_log()`) and emits `request_completed` exactly once (body finished, client gone, or app raised); `/health` is never logged. Code sets fields on `request_log()` instead of logging its own info lines.
-- **Debug stage events**: `request_received` (from a pass-through receive tap — never buffer the body), `upstream_request`/`upstream_response` (from `upstream.py`), `stream_summary`. Build previews, header copies and counters only when debug is on (`RequestLog.debug`).
+- `RequestContextMiddleware` owns the per-request `RequestLog` (contextvar, `request_log()`); code sets fields on it instead of logging. `request_started` is emitted once (pipeline after model resolution, else at response start); `request_completed` only with `log_completed`, level by status. `/health` is never logged.
+- Debug adds `upstream_request`/`upstream_response` (from `upstream.py`). Headers and bodies appear only with debug plus `log_headers`/`log_bodies`; bodies come from a pass-through receive tap capped at 64 KiB — never buffer the body. No per-chunk counters or logs.
 - Credential header values are redacted; startup and error messages never contain provider URLs or keys. README "Logging" documents every event and field.
 
 ### Streaming
@@ -121,6 +121,9 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
   "port": 7860,
   "proxy": {"api_keys": [], "allow_unauthenticated": false, "trust_proxy_headers": false, "forwarded_allow_ips": "127.0.0.1"},
   "log_level": "info",
+  "log_completed": false,
+  "log_headers": false,
+  "log_bodies": false,
   "providers": {
     "<key>": {
       "format": "openai_chat | openai_responses | anthropic",

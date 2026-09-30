@@ -19,12 +19,7 @@ import orjson
 
 from rosetta import __version__
 from rosetta.config import Config
-from rosetta.observability import (
-    debug_enabled,
-    get_logger,
-    request_log,
-    upstream_response_fields,
-)
+from rosetta.observability import body_fields, get_logger, ms_since, redact_headers, request_log
 
 type TransportErrorKind = Literal["connect", "timeout", "protocol"]
 
@@ -91,38 +86,46 @@ def _transport_error(provider_key: str, exc: httpx2.RequestError) -> UpstreamErr
     return UpstreamError(provider_key, "protocol")
 
 
-def _ms_since(started: float) -> float:
-    return round((time.perf_counter() - started) * 1000, 1)
-
-
-def _log_request(
-    provider_key: str, request: httpx2.Request, headers: Mapping[str, str], *, stream: bool
-) -> bool:
+def _log_request(provider_key: str, request: httpx2.Request, *, stream: bool) -> bool:
     """Emit `upstream_request` at debug; returns whether debug is on."""
-    if not debug_enabled():
+    rec = request_log()
+    if not rec.debug:
         return False
-    get_logger().debug(
-        "upstream_request",
-        provider=provider_key,
-        path=request.url.path,
-        upstream_model=request_log().upstream_model,
-        stream=stream,
-        body_bytes=len(request.content),
-        headers=sorted(k.lower() for k in headers),
-    )
+    event: dict[str, Any] = {
+        "provider": provider_key,
+        "path": request.url.path,
+        "upstream_model": rec.upstream_model,
+        "stream": stream,
+        "body_bytes": len(request.content),
+    }
+    if rec.log_headers:
+        event["headers"] = redact_headers(request.headers.items())
+    if rec.log_bodies:
+        event.update(body_fields(request.content, len(request.content)))
+    get_logger().debug("upstream_request", **event)
     return True
 
 
 def _record_response(
-    status: int, headers: Mapping[str, str], ttfb_ms: float, body: bytes | None, *, debug: bool
+    status: int, headers: Mapping[str, str], ttfb_ms: int, body: bytes | None, *, debug: bool
 ) -> None:
+    """Record the upstream status; at debug emit `upstream_response`.
+
+    `body` is None for a successful stream, whose body is never buffered.
+    """
     rec = request_log()
     rec.upstream_status = status
-    rec.upstream_request_id = headers.get("request-id") or headers.get("x-request-id")
-    if debug:
-        get_logger().debug(
-            "upstream_response", **upstream_response_fields(status, headers, ttfb_ms, body)
-        )
+    if not debug:
+        return
+    event: dict[str, Any] = {"status": status, "ttfb_ms": ttfb_ms}
+    upstream_request_id = headers.get("request-id") or headers.get("x-request-id")
+    if upstream_request_id:
+        event["upstream_request_id"] = upstream_request_id
+    if rec.log_headers:
+        event["headers"] = redact_headers(headers.items())
+    if rec.log_bodies and body is not None:
+        event.update(body_fields(body, len(body)))
+    get_logger().debug("upstream_response", **event)
 
 
 class UpstreamStream:
@@ -221,7 +224,7 @@ class UpstreamClient:
         request = self._client(provider_key).build_request(
             "POST", path, content=body, headers={"content-type": "application/json", **headers}
         )
-        return await self._send_and_read(provider_key, request, headers, stream=False)
+        return await self._send_and_read(provider_key, request)
 
     async def get(
         self,
@@ -244,22 +247,15 @@ class UpstreamClient:
             request = client.build_request("GET", path, params=params)
         else:
             request = client.build_request("GET", path, params=params, timeout=timeout)
-        return await self._send_and_read(provider_key, request, {}, stream=False)
+        return await self._send_and_read(provider_key, request)
 
-    async def _send_and_read(
-        self,
-        provider_key: str,
-        request: httpx2.Request,
-        headers: Mapping[str, str],
-        *,
-        stream: bool,
-    ) -> UpstreamResponse:
+    async def _send_and_read(self, provider_key: str, request: httpx2.Request) -> UpstreamResponse:
         client = self._client(provider_key)
-        debug = _log_request(provider_key, request, headers, stream=stream)
+        debug = _log_request(provider_key, request, stream=False)
         started = time.perf_counter()
         try:
             resp = await client.send(request, stream=True)
-            ttfb_ms = _ms_since(started)
+            ttfb_ms = ms_since(started)
             try:
                 body = await resp.aread()
             finally:
@@ -302,13 +298,13 @@ class UpstreamClient:
                 **headers,
             },
         )
-        debug = _log_request(provider_key, request, headers, stream=True)
+        debug = _log_request(provider_key, request, stream=True)
         started = time.perf_counter()
         try:
             response = await client.send(request, stream=True)
         except httpx2.RequestError as exc:
             raise _transport_error(provider_key, exc) from exc
-        ttfb_ms = _ms_since(started)
+        ttfb_ms = ms_since(started)
         stream = UpstreamStream(provider_key, response)
         try:
             if response.status_code >= 400:

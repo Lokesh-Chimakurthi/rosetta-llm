@@ -112,6 +112,12 @@ class Config(BaseModel):
     port: int = 7860
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     log_level: LogLevel = "info"
+    # Also log request_completed (status, latency, tokens) for every request.
+    log_completed: bool = False
+    # At debug only: add headers (credentials redacted) / bodies (capped) to
+    # request_started, upstream_request and upstream_response.
+    log_headers: bool = False
+    log_bodies: bool = False
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
 
     @model_validator(mode="after")

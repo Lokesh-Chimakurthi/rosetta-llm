@@ -46,6 +46,17 @@ def _config_options() -> argparse.ArgumentParser:
         choices=get_args(LogLevel),
         help="Log level (overrides config; default: info)",
     )
+    for name, what in (
+        ("completed", "also log request_completed (status, latency, tokens) per request"),
+        ("headers", "add headers (credentials redacted) to debug events"),
+        ("bodies", "add bodies (capped at 64 KiB) to debug events"),
+    ):
+        parent.add_argument(
+            f"--log-{name}",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            help=f"{what.capitalize()} (overrides config; default: off)",
+        )
     parent.add_argument(
         "--allow-unauthenticated",
         action="store_true",
@@ -141,6 +152,12 @@ def _load(args: argparse.Namespace) -> Config:
         config.port = args.port
     if args.log_level is not None:
         config.log_level = args.log_level
+    if args.log_completed is not None:
+        config.log_completed = args.log_completed
+    if args.log_headers is not None:
+        config.log_headers = args.log_headers
+    if args.log_bodies is not None:
+        config.log_bodies = args.log_bodies
     if args.allow_unauthenticated is not None:
         config.proxy.allow_unauthenticated = args.allow_unauthenticated
     if args.proxy_headers is not None:
@@ -183,6 +200,19 @@ def _auth_summary(config: Config) -> str:
     return "none (loopback only)"
 
 
+def _log_extras(config: Config) -> str:
+    extras = [
+        name
+        for name, on in (
+            ("completed", config.log_completed),
+            ("headers", config.log_headers),
+            ("bodies", config.log_bodies),
+        )
+        if on
+    ]
+    return f" (+{', '.join(extras)})" if extras else ""
+
+
 def _check(args: argparse.Namespace) -> None:
     config = _load(args)
     try:
@@ -196,7 +226,7 @@ def _check(args: argparse.Namespace) -> None:
         f"bind:          {config.host}:{config.port}",
         f"auth:          {_auth_summary(config)}",
         f"proxy headers: {headers}",
-        f"log level:     {config.log_level}",
+        f"log level:     {config.log_level}{_log_extras(config)}",
         f"providers:     {len(config.providers)}",
     ]
     width = max((len(key) for key in config.providers), default=0)

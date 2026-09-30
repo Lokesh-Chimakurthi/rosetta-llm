@@ -31,7 +31,7 @@ from rosetta.errors import format_error, format_stream_error
 from rosetta.ir.events import MessageDeltaEvent
 from rosetta.ir.request import CanonicalRequest
 from rosetta.ir.response import CanonicalResponse, StopInfo, Usage
-from rosetta.observability import RequestLog, get_logger, request_log
+from rosetta.observability import RequestLog, log_translation_failed, request_log
 from rosetta.routes.health import record_provider_status
 from rosetta.stream_codecs import anthropic as ac_stream
 from rosetta.stream_codecs import openai_chat as oc_stream
@@ -129,15 +129,14 @@ async def handle(
     config: Config = request.app.state.config
     upstream: UpstreamClient = request.app.state.upstream
     status_dict: dict[str, Any] = request.app.state.provider_status
-    log = get_logger()
     rec = request_log()
-    rec.inbound_format = inbound_format
 
     model_id = payload.get("model", "")
+    rec.model = model_id or None
     try:
         provider, provider_key, upstream_name = _resolve_model(model_id, config)
     except ValueError as e:
-        rec.error_type = "invalid_request"
+        rec.error = "invalid_request"
         return JSONResponse(
             content=format_error(inbound_format, 400, "invalid_request_error", str(e)),
             status_code=400,
@@ -148,12 +147,10 @@ async def handle(
     is_stream = bool(payload.get("stream", False))
     upstream_path = _FORMAT_PATH[provider.format]
 
-    rec.provider = provider_key
-    rec.model = model_id
-    rec.provider_format = provider.format
     rec.upstream_model = upstream_name
     rec.stream = is_stream
     rec.route = "passthrough" if inbound_format == provider.format else "translate"
+    rec.log_started()
 
     fwd_headers = _forwarded_headers(request)
 
@@ -179,7 +176,6 @@ async def handle(
         is_stream,
         request,
         upstream,
-        log,
         fwd_headers,
         status_dict,
     )
@@ -216,14 +212,14 @@ async def _passthrough(
         resp = await upstream.post(provider_key, upstream_path, body_bytes, fwd_headers)
         record_provider_status(status_dict, provider_key, ok=resp.ok)
     except UpstreamError as e:
-        request_log().error_type = f"upstream_{e.kind}"
+        request_log().error = f"upstream_{e.kind}"
         record_provider_status(status_dict, provider_key, ok=False)
         return JSONResponse(
             content=format_error(inbound_format, 502, "upstream_error", str(e)),
             status_code=502,
         )
     if not resp.ok:
-        request_log().error_type = "upstream_status"
+        request_log().error = "upstream_status"
     return Response(
         content=resp.body,
         status_code=resp.status,
@@ -235,21 +231,17 @@ def _stream_error_type(err: UpstreamError | UpstreamStatusError) -> str:
     return "upstream_status" if isinstance(err, UpstreamStatusError) else f"upstream_{err.kind}"
 
 
-async def _count_in(chunks: AsyncIterator[bytes], rec: RequestLog) -> AsyncIterator[bytes]:
-    async for chunk in chunks:
-        rec.chunks_in += 1
-        yield chunk
-
-
 def _record_usage(rec: RequestLog, usage: Usage, stop: StopInfo | None) -> None:
     rec.input_tokens = usage.input_tokens
     rec.output_tokens = usage.output_tokens
+    if stop is not None and stop.normalized:
+        rec.stop_reason = stop.normalized
     if rec.debug:
-        rec.cache_read_input_tokens = usage.cache_read_input_tokens
-        rec.cache_creation_input_tokens = usage.cache_creation_input_tokens
+        rec.cache_read_tokens = usage.cache_read_input_tokens
+        rec.cache_creation_tokens = usage.cache_creation_input_tokens
         rec.reasoning_tokens = usage.reasoning_tokens
         if stop is not None and stop.provider_raw:
-            rec.raw_stop_reason = stop.provider_raw
+            rec.upstream_stop_reason = stop.provider_raw
 
 
 async def _usage_tap(events: AsyncIterator[Any], rec: RequestLog) -> AsyncIterator[Any]:
@@ -279,19 +271,14 @@ async def _passthrough_stream_with_recovery(
     rec = request_log()
     try:
         async with upstream.stream(provider_key, upstream_path, body, fwd_headers) as stream:
-            chunks = stream.iter_bytes()
-            if rec.debug:
-                chunks = _count_in(chunks, rec)
-            async for chunk in chunks:
+            async for chunk in stream.iter_bytes():
                 if await request.is_disconnected():
                     rec.client_disconnected = True
                     break
-                if rec.debug:
-                    rec.chunks_out += 1
                 yield chunk
         record_provider_status(status_dict, provider_key, ok=True)
     except (UpstreamError, UpstreamStatusError) as e:
-        rec.error_type = _stream_error_type(e)
+        rec.error = _stream_error_type(e)
         record_provider_status(status_dict, provider_key, ok=False)
         yield format_stream_error(inbound_format, "upstream_error", _stream_error_message(e))
 
@@ -305,16 +292,14 @@ async def _translate(
     is_stream: bool,
     request: Request,
     upstream: UpstreamClient,
-    log: Any,
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
 ) -> Response:
     try:
         ir = _PARSE_REQ[inbound_format](payload)
         upstream_body = _RENDER_REQ[provider_format](ir)
-    except Exception as e:
-        request_log().error_type = "translation_error"
-        log.exception("translate_request_error")
+    except Exception as e:  # noqa: BLE001 - any codec failure on client input becomes a 400; logged
+        log_translation_failed("request", e)
         return JSONResponse(
             content=format_error(inbound_format, 400, "translation_error", str(e)),
             status_code=400,
@@ -342,7 +327,7 @@ async def _translate(
             provider_key, upstream_path, orjson.dumps(upstream_body), fwd_headers
         )
     except UpstreamError as e:
-        request_log().error_type = f"upstream_{e.kind}"
+        request_log().error = f"upstream_{e.kind}"
         record_provider_status(status_dict, provider_key, ok=False)
         return JSONResponse(
             content=format_error(inbound_format, 502, "upstream_error", str(e)),
@@ -350,7 +335,7 @@ async def _translate(
         )
 
     if not resp.ok:
-        request_log().error_type = "upstream_status"
+        request_log().error = "upstream_status"
         record_provider_status(status_dict, provider_key, ok=False)
         try:
             upstream_err = resp.json()
@@ -371,9 +356,8 @@ async def _translate(
         upstream_data = resp.json()
         ir_resp = _PARSE_RESP[provider_format](upstream_data)
         out = _RENDER_RESP[inbound_format](ir_resp)
-    except Exception as e:
-        request_log().error_type = "translation_error"
-        log.exception("translate_response_error")
+    except Exception as e:  # noqa: BLE001 - any codec failure on upstream output becomes a 502; logged
+        log_translation_failed("response", e)
         return JSONResponse(
             content=format_error(inbound_format, 502, "translation_error", str(e)),
             status_code=502,
@@ -393,16 +377,12 @@ async def _translate_stream(
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
 ) -> AsyncIterator[bytes]:
-    log = get_logger()
     rec = request_log()
     try:
         async with upstream.stream(
             provider_key, upstream_path, orjson.dumps(payload), fwd_headers
         ) as stream:
-            chunks = stream.iter_bytes()
-            if rec.debug:
-                chunks = _count_in(chunks, rec)
-            ir_events = _usage_tap(_STREAM_PARSE[provider_format](chunks), rec)
+            ir_events = _usage_tap(_STREAM_PARSE[provider_format](stream.iter_bytes()), rec)
             if inbound_format == "anthropic":
                 ir_events = ac_stream.wrap_with_ping(ir_events)
             out_bytes = _STREAM_RENDER[inbound_format](ir_events)
@@ -411,17 +391,14 @@ async def _translate_stream(
                 if await request.is_disconnected():
                     rec.client_disconnected = True
                     break
-                if rec.debug:
-                    rec.chunks_out += 1
                 yield chunk
         record_provider_status(status_dict, provider_key, ok=True)
     except (UpstreamError, UpstreamStatusError) as e:
-        rec.error_type = _stream_error_type(e)
+        rec.error = _stream_error_type(e)
         record_provider_status(status_dict, provider_key, ok=False)
         yield format_stream_error(inbound_format, "upstream_error", _stream_error_message(e))
-    except Exception as e:
-        rec.error_type = "translation_error"
-        log.exception("stream_translate_error")
+    except Exception as e:  # noqa: BLE001 - becomes an in-stream error event; logged
+        log_translation_failed("stream", e)
         yield format_stream_error(inbound_format, "translation_error", str(e))
 
 

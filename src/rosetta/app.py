@@ -107,7 +107,7 @@ def create_app(config: Config, *, upstream: UpstreamClient | None = None) -> Fas
     app.state.model_refresh_lock = asyncio.Lock()
 
     app.add_middleware(AuthMiddleware, api_keys=config.proxy.api_keys)
-    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(RequestContextMiddleware, config=config)
 
     app.include_router(health_router)
     app.include_router(messages_router)

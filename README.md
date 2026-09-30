@@ -49,6 +49,9 @@ Options for `serve` and `check` (each overrides the config; precedence: flag > c
 | `--host HOST` | `127.0.0.1` |
 | `--port`, `-p PORT` | `7860` |
 | `--log-level {debug,info,warning,error}` | `info` |
+| `--log-completed` / `--no-log-completed` | off (see [Logging](#logging)) |
+| `--log-headers` / `--no-log-headers` | off; debug only |
+| `--log-bodies` / `--no-log-bodies` | off; debug only |
 | `--allow-unauthenticated` | off: a non-loopback host needs `proxy.api_keys` |
 | `--proxy-headers` / `--no-proxy-headers` | off |
 | `--forwarded-allow-ips IPS` | `127.0.0.1` |
@@ -218,41 +221,55 @@ curl http://localhost:7860/v1/chat/completions \
 
 ## Logging
 
-Every line is one JSON object on stdout with `event`, `level` and `timestamp`. Lines emitted while serving a request also carry `request_id`, which is echoed in the `x-request-id` response header. An inbound `x-request-id` is reused only when it matches `^[A-Za-z0-9._-]{1,128}$`; otherwise a new id is generated.
+One JSON object per line on stdout, each with `ts`, `level` and `event`. Lines logged while serving a request carry `request_id`, which is echoed in the `x-request-id` response header. An inbound `x-request-id` is reused only when it matches `^[A-Za-z0-9._-]{1,128}$`; otherwise a 16-hex-character id is generated. `/health` is never logged, and nothing is logged per chunk or per token.
 
-`log_level` is `debug`, `info` (default), `warning` or `error`. Precedence: `--log-level` flag > `log_level` in config > `info`.
+| Setting | Config key | Flag | Default |
+|---------|-----------|------|---------|
+| Level: `debug`, `info`, `warning`, `error` | `log_level` | `--log-level` | `info` |
+| Log `request_completed` too | `log_completed` | `--log-completed` / `--no-log-completed` | off |
+| Add headers to debug events (credentials redacted) | `log_headers` | `--log-headers` / `--no-log-headers` | off |
+| Add bodies to debug events (capped at 64 KiB) | `log_bodies` | `--log-bodies` / `--no-log-bodies` | off |
+
+Precedence for each: flag > config > default. `log_headers` and `log_bodies` only take effect at `debug`.
 
 ### Info
 
-- `startup` — once at boot: `version`, `host`, `port`, `log_level`, and `providers` (each `key`, `format`, `discover`). No URLs or secrets.
-- `request_completed` — exactly once per HTTP request except `/health`, when the response body finishes, when the client disconnects, or when the app raises. Fields are present only when set:
+```json
+{"ts":"2026-09-30T13:31:07.402Z","level":"info","event":"startup","version":"0.2.2","host":"127.0.0.1","port":7860,"log_level":"info","providers":[{"key":"octo","format":"openai_chat","discover":true}]}
+{"ts":"2026-09-30T13:31:17.661Z","level":"info","event":"request_started","request_id":"b4f81a35294d4639","path":"/v1/messages","model":"octo/deepseek-v4.1-flash","route":"translate","stream":true}
+```
+
+- `startup` — once at boot; providers carry `key`, `format`, `discover` (no URLs or secrets).
+- `request_started` — once per request, when the model is resolved (or when the response starts for requests that are not model calls): `path`, and when known `model`, `route` (`passthrough` or `translate`), `stream`.
+- `models_refreshed` — after each model-list refresh: `total`, `elapsed_ms`.
+- `translation_failed` — `error` level, when a request or response cannot be translated: `direction`, `error`. The traceback is added at `debug`.
+
+With `log_completed`, each request also logs `request_completed` — at `info` for 2xx/3xx, `warning` for 4xx, `error` for 5xx — when the response finishes, the client disconnects, or the app raises:
+
+```json
+{"ts":"2026-09-30T13:31:38.385Z","level":"info","event":"request_completed","request_id":"b4f81a35294d4639","path":"/v1/messages","status":200,"duration_ms":20725,"model":"octo/deepseek-v4.1-flash","route":"translate","stream":true,"ttft_ms":2568,"input_tokens":115104,"output_tokens":1860,"stop_reason":"end_turn"}
+{"ts":"2026-09-30T13:32:01.118Z","level":"warning","event":"request_completed","request_id":"9c2e71d0a4f84b21","path":"/v1/messages","status":429,"duration_ms":312,"model":"octo/deepseek-v4-pro","route":"translate","stream":false,"error":"upstream_status","upstream_status":429}
+```
 
 | Field | Meaning |
 |-------|---------|
-| `method`, `path`, `status` | The inbound request and the status sent |
-| `duration_ms` | Time from request start to completion |
-| `route` | `passthrough` (same format) or `translate` |
-| `provider`, `model` | Provider key and the model id the client sent |
-| `stream` | Whether the client asked for a stream |
-| `ttft_ms` | Streams only: time to the first body bytes sent |
-| `input_tokens`, `output_tokens` | Translated responses only, from the upstream usage |
-| `error_type` | Set on failure: `invalid_request`, `upstream_connect`, `upstream_timeout`, `upstream_protocol`, `upstream_status`, `translation_error`, or the exception class name |
-| `client_disconnected` | `true` when the client went away before the response finished |
-
-- `models_refreshed` — after each model-list refresh: `total`, `elapsed_ms`.
-
-Unexpected translation failures additionally log one `error`-level line with a traceback (`translate_request_error`, `translate_response_error`, `stream_translate_error`).
+| `status`, `duration_ms` | Status sent and total time |
+| `ttft_ms` | Streams only: time to the first bytes sent |
+| `input_tokens`, `output_tokens`, `stop_reason` | Translated responses only, from the upstream usage and stop reason |
+| `error` | `invalid_request`, `upstream_connect`, `upstream_timeout`, `upstream_protocol`, `upstream_status`, `translation_error`, or the exception class name |
+| `upstream_status` | With `error`, the status the provider returned |
+| `client_disconnected` | `true` when the client left before the response finished |
 
 ### Debug
 
-`request_completed` also carries `inbound_format`, `provider_format`, `upstream_model`, `upstream_status`, `upstream_request_id`, `cache_read_input_tokens`, `cache_creation_input_tokens`, `reasoning_tokens`, `raw_stop_reason`, `dropped_params`, `session_id` (from `x-claude-code-session-id`) and `client`, when set. Four stage events are added per request:
+Adds `upstream_request` and `upstream_response`; with `log_completed`, `request_completed` also carries `cache_read_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `upstream_stop_reason`, `upstream_status` and `session_id` (from `x-claude-code-session-id`).
 
-- `request_received` — `headers` (values of `authorization`, `proxy-authorization`, `x-api-key`, `api-key`, `cookie` and `set-cookie` replaced by `***`), `query`, `body_bytes`, `body_preview` (first 2048 characters).
-- `upstream_request` — `provider`, `path`, `upstream_model`, `stream`, `body_bytes`, and the forwarded header names (names only).
-- `upstream_response` — `status`, `ttfb_ms`, `request-id`, every `*ratelimit*` response header, and on status >= 400 `error_preview` (first 1024 characters of the body).
-- `stream_summary` — streams only: `chunks_in` (upstream chunks), `chunks_out` (chunks sent), `dropped_events`, `keepalives`.
+```json
+{"ts":"2026-09-30T13:31:17.664Z","level":"debug","event":"upstream_request","request_id":"b4f81a35294d4639","provider":"octo","path":"/v1/chat/completions","upstream_model":"deepseek-v4.1-flash","stream":true,"body_bytes":48211}
+{"ts":"2026-09-30T13:31:20.074Z","level":"debug","event":"upstream_response","request_id":"b4f81a35294d4639","status":200,"ttfb_ms":2410}
+```
 
-Nothing is logged per chunk or per token at any level, and debug detail is only computed when debug is enabled.
+`upstream_response` carries `upstream_request_id` when the provider sends a `request-id` or `x-request-id` header. With `log_headers`, `request_started`, `upstream_request` and `upstream_response` gain `headers`; values of `authorization`, `proxy-authorization`, `x-api-key`, `api-key`, `cookie` and `set-cookie` are replaced by `***`. With `log_bodies` they gain `body` (the first 64 KiB), `body_bytes`, and `body_truncated: true` when cut; a successful streaming response body is never logged.
 
 ## Environment Variables
 

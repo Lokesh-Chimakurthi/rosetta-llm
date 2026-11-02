@@ -20,6 +20,12 @@
   // Logging: "debug" | "info" | "warning" | "error"
   "log_level": "info",
 
+  // Optional: fallback provider for callers that send bare model names
+  // without the `<provider>/` prefix (e.g. OpenAI Codex CLI strips
+  // `anthropic/` before forwarding). Must match a key under `providers`.
+  // Omit for strict mode where every request must carry an explicit prefix.
+  // "default_provider": "abc",
+
   // =============================================================================
   // Provider definitions. Keys are the prefix used in model ids.
   // Model id format: <provider_key>/<model_name>

@@ -107,9 +107,7 @@ class Config(BaseModel):
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
     log_level: Literal["debug", "info", "warning", "error"] = "info"
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
-    # Optional fallback provider for callers that send bare model names
-    # without a `<provider>/` prefix (e.g. OpenAI-style clients pointed at
-    # the bridge). When set, must be one of the keys in `providers`.
+    # Provider for bare model names; must be a key under `providers`.
     default_provider: str | None = None
 
     @model_validator(mode="after")

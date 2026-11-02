@@ -58,7 +58,7 @@ python -m rosetta
 - **Passthrough fast path**: zero-overhead when inbound format matches provider's native format
 - **Canonical IR translation**: lossless cross-format translation including thinking blocks, tool calls, and reasoning
 - **Claude Code gateway**: full model picker integration — non-Anthropic models appear in `/model` via `claude-code/` prefixing
-- **Provider routing**: `<provider>/<model>` prefix scheme (e.g., `anthropic/claude-opus-4-7`)
+- **Provider routing**: `<provider>/<model>` prefix scheme (e.g., `anthropic/claude-opus-4-7`); set `default_provider` to route bare model names from clients that drop the prefix
 - **Bearer-token auth**: optional proxy-level API key authentication
 - **Structured JSON logging**: request-scoped with configurable log levels
 - **Docker support**: multi-stage build with `python:3.13-slim`

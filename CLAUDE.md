@@ -6,7 +6,7 @@ Multi-format bidirectional LLM proxy. Translates between OpenAI Chat Completions
 
 ```bash
 uv sync                        # install deps + dev tools
-uv run pytest tests/ -q        # run tests (55)
+uv run pytest tests/ -q        # run tests (80)
 uv run ruff check src/ tests/  # lint
 uv run ruff format src/ tests/ # format
 uv run mypy src/rosetta        # type-check (strict mode)
@@ -34,11 +34,11 @@ docker run -p 7860:7860 -v ~/.rosetta-llm/config.json:/app/config.json \
 
 **Translation slow path**: `inbound bytes → IR → provider format → upstream → provider bytes → IR → inbound format`. Streaming uses per-format state machines that emit/consume `CanonicalStreamEvent`.
 
-**Canonical IR** (`ir/`): every block carries a `_raw` dict sidecar (PrivateAttr) so format-specific fields survive lossy rendering and round-trip correctly. This is critical for reasoning fidelity and tool-call identity preservation.
+**Canonical IR** (`ir/`): every block carries an optional `_raw` dict sidecar (PrivateAttr, defaults to `None`) so format-specific fields survive lossy rendering and round-trip correctly. This is critical for reasoning fidelity and tool-call identity preservation.
 
 ## Key design decisions
 
-- **uv project** — always use `uv run <cmd>`, never `.venv/bin/python` directly.
+- **uv project** — always use `uv run <cmd>`.
 - **No pydantic-ai** — pure httpx async. pydantic-ai's agent abstraction obscures wire-level fidelity.
 - **No BaseHTTPMiddleware** — blocks SSE streaming. Auth and request-id are pure ASGI middleware.
 - **Dockerfile** — multi-stage build using uv. Project is installed into the venv; CMD uses the `rosetta-llm` CLI. Config is mounted at `/app/config.json` via the `ROSETTA_CONFIG` env var.
@@ -127,4 +127,12 @@ Model id format: `<provider_key>/<model_name>` (e.g., `anthropic/claude-opus-4-7
 - `tests/codecs/test_roundtrip.py` — codec property tests: Anthropic round-trip, tool-use input as object, tool-result ordering, Chat→Anthropic tool-call ID preservation, reasoning lossless round-trip (encrypted_content+id via signature), response round-trip, unknown-param passthrough, max_tokens synthesis, streaming partial-JSON buffering.
 - `tests/test_e2e.py` — FastAPI TestClient + respx: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough.
 
-Run with: `uv run pytest tests/ -q` (55 tests, ~0.5s).
+Run with: `uv run pytest tests/ -q` (80 tests, ~2s).
+
+<!-- OPENWIKI:START -->
+
+## OpenWiki
+
+See [AGENTS.md](AGENTS.md) for OpenWiki agent instructions.
+
+<!-- OPENWIKI:END -->

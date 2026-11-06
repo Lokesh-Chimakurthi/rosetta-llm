@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+from typing import Any
 
 import httpx
 import pytest
@@ -11,6 +13,22 @@ from fastapi.testclient import TestClient
 
 from rosetta.app import create_app
 from rosetta.config import Config
+
+
+def _parse_sse(raw: bytes) -> list[tuple[str, dict[str, Any]]]:
+    """Split a rendered Anthropic SSE byte stream into (event_name, payload) pairs."""
+    events: list[tuple[str, dict[str, Any]]] = []
+    for block in raw.split(b"\n\n"):
+        if not block.strip():
+            continue
+        name, data_str = "", ""
+        for line in block.decode().split("\n"):
+            if line.startswith("event:"):
+                name = line[6:].strip()
+            elif line.startswith("data:"):
+                data_str = line[5:].lstrip()
+        events.append((name, json.loads(data_str)))
+    return events
 
 
 @pytest.fixture
@@ -221,6 +239,99 @@ def test_chat_stream_passthrough(client: TestClient) -> None:
             chunks = b"".join(r.iter_bytes())
     assert b"[DONE]" in chunks
     assert b"hi" in chunks
+
+
+def test_anthropic_stream_translation_carries_usage(client: TestClient) -> None:
+    """Anthropic-inbound streaming translation: one usage-bearing terminal message_delta."""
+    upstream_sse = (
+        b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{"role":"assistant"}}]}\n\n'
+        b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{"content":"hi"}}]}\n\n'
+        b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":null}\n\n'
+        b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":5,"cache_write_tokens":0}}}\n\n'
+        b"data: [DONE]\n\n"
+    )
+    with respx.mock(base_url="https://upstream.test/v1") as mock:
+        route = mock.post("/chat/completions").mock(
+            return_value=httpx.Response(
+                200,
+                content=upstream_sse,
+                headers={"content-type": "text/event-stream"},
+            ),
+        )
+        with client.stream(
+            "POST",
+            "/v1/messages",
+            json={
+                "model": "abc/m1",
+                "max_tokens": 16,
+                "stream": True,
+                "messages": [{"role": "user", "content": "hi"}],
+            },
+        ) as r:
+            body = b"".join(r.iter_bytes())
+
+    # The upstream saw the ask for usage.
+    sent = json.loads(route.calls.last.request.content)
+    assert sent["stream_options"] == {"include_usage": True}
+
+    events = _parse_sse(body)
+    names = [name for name, _ in events]
+    assert names.count("message_delta") == 1
+    delta_idx = names.index("message_delta")
+    assert names[delta_idx + 1] == "message_stop"
+
+    usage = events[delta_idx][1]["usage"]
+    assert usage["input_tokens"] > 0
+    assert usage["output_tokens"] > 0
+    assert usage["cache_read_input_tokens"] == 5
+
+    start = next(data for name, data in events if name == "message_start")
+    assert start["message"]["usage"] == {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+    }
+
+
+def test_anthropic_stream_translation_plain_usage_no_cache(client: TestClient) -> None:
+    """Plain case: no cached tokens — input_tokens passes through unchanged."""
+    upstream_sse = (
+        b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{"content":"hi"}}]}\n\n'
+        b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":null}\n\n'
+        b'data: {"id":"x","object":"chat.completion.chunk","model":"m1","choices":[],"usage":{"prompt_tokens":7,"completion_tokens":3}}\n\n'
+        b"data: [DONE]\n\n"
+    )
+    with respx.mock(base_url="https://upstream.test/v1") as mock:
+        mock.post("/chat/completions").mock(
+            return_value=httpx.Response(
+                200,
+                content=upstream_sse,
+                headers={"content-type": "text/event-stream"},
+            ),
+        )
+        with client.stream(
+            "POST",
+            "/v1/messages",
+            json={
+                "model": "abc/m1",
+                "max_tokens": 16,
+                "stream": True,
+                "messages": [{"role": "user", "content": "hi"}],
+            },
+        ) as r:
+            body = b"".join(r.iter_bytes())
+
+    events = _parse_sse(body)
+    names = [name for name, _ in events]
+    assert names.count("message_delta") == 1
+    delta_idx = names.index("message_delta")
+    assert names[delta_idx + 1] == "message_stop"
+
+    usage = events[delta_idx][1]["usage"]
+    assert usage["input_tokens"] == 7
+    assert usage["output_tokens"] == 3
+    assert usage.get("cache_read_input_tokens", 0) == 0
 
 
 def test_env_resolved_custom_header_reaches_upstream() -> None:

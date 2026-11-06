@@ -12,7 +12,7 @@ from rosetta.ir.response import StopInfo, Usage
 class MessageStartEvent(BaseModel):
     type: Literal["message_start"] = "message_start"
     model: str = ""
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)
 
 
 class PartStartEvent(BaseModel):
@@ -25,7 +25,7 @@ class PartStartEvent(BaseModel):
     # content_block_start / openai output_item.done): `{"input": ...}` for
     # server_tool_use, `{"tool_references": [...]}` for search results.
     payload: dict[str, Any] = Field(default_factory=dict)
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)
 
 
 class PartDeltaEvent(BaseModel):
@@ -33,25 +33,25 @@ class PartDeltaEvent(BaseModel):
     index: int = 0
     delta_type: Literal["text", "json", "reasoning", "signature"] = "text"
     text: str = ""
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)
 
 
 class PartStopEvent(BaseModel):
     type: Literal["part_stop"] = "part_stop"
     index: int = 0
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)
 
 
 class MessageDeltaEvent(BaseModel):
     type: Literal["message_delta"] = "message_delta"
     stop: StopInfo | None = None
     usage: Usage | None = None
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)
 
 
 class MessageStopEvent(BaseModel):
     type: Literal["message_stop"] = "message_stop"
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)
 
 
 class PingEvent(BaseModel):
@@ -62,7 +62,7 @@ class ErrorEvent(BaseModel):
     type: Literal["error"] = "error"
     error_type: str = ""
     message: str = ""
-    _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _raw: dict[str, Any] | None = PrivateAttr(default=None)
 
 
 CanonicalStreamEvent = (

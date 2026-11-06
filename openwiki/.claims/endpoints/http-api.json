@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:cbe7092e5047acf21e3811a7a2be5691f3bea3380e6cd1f741ef071fc5d55a56",
+  "claims": [
+    {
+      "id": "claim_6e7b98d8942d4c4d9f332df1cb7664b8",
+      "statement": "All three inference routes accept a permissive ProxyRequest with extra allow, dump it to a dict, and delegate to pipeline.handle with a fixed inbound format string.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/routes/chat_completions.py#L15-L17",
+          "version": "repo-lines-v1:sha256:6acbe68e999b6e2197177908d9db922347d0473a5cbba3cb478abc5228088003:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjA5MGI4NGI5MzkwZWM5OGVkNzRkMmQyMTVhNjBmNzg4OWY3NzRhODYyOTc1YjhmZWY4MGQwNDIxOGViYjZhYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzVhYzIxY2JiMmI1OTkxYjM2ZmFkNWU2Y2MxZTY3MDgyYjhiNGEwNzBhNzUxOGY2NzA3NWZhNjg3YmIzZjRiNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzAzMzQ4ZWQ5ZGY5ZmRiZTcyYjMyMDY4ZDBmZWVhNzhlYjcyNTZiNjMyYzBjMjdkM2MyODJkYTY1MTZjYTRiMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/messages.py#L16-L18",
+          "version": "repo-lines-v1:sha256:886d49aab9ac7013da88738540ea96a00c33444677c3aece5b411eb495e6714a:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWYzMzhlM2Y1NDA5ZmRhM2ZlNmRiOTIzZTJhMDVhMzY1NTNlYWY0OTFkZDk0ZmU5M2M5OTJkMzA5OTlhM2Y3ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzRlM2UxOWQ1ZGZhOGQzNmZjODExNjdlNmYyM2NiYjUzMTAwZmJhZjA5OWE2MDkwMDU4OGVmOGExNjI5NmEzOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDM4YjY1Nzk1ZTdmMTdiYjcyNjAyMjVjZTZjOTI5NmZhYmJjZTQ1MzVhMDFmMzgzNTFlZWFkMmNhMDEwMmI4OSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjEyZmJiNzY1NTkyY2NjZGNiN2Y2ZGMxYjllNjJjMzg0NTE1YmEzNGRlNzk2YzMzODhiOWRmYzIxYThkMGVkNCJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/responses.py#L15-L17",
+          "version": "repo-lines-v1:sha256:8380f51ddda8297ed39d10fc7bde8df71e2e856a6c28a7efd726a64233ff8be9:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTQ1ODgyOGFhZTYxZGRkOGVlNTc2OTMxNDVjYmY1YmNhYjZjZTMwMTllOTdhYjk3YTFjZjcxZjU1ZDkwNmJlMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjViZjY5OGNkNWE2MjZhNzFjMDk5MjYyYjZmOGFhODI4YTEwNGM0N2NkODI4NDQzZmI2OTU3NjE2YTA2NTk4OCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNmVlMDJhYzg0Y2E0OTdmOWQ3NTgzYTVhOWY2ZWVjNjI3MjQ2ZTA1ZDY0MzQxNTdhMTM2NGZkNDE3MWNhYWU3NyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/schemas.py#L10-L19",
+          "version": "repo-lines-v1:sha256:5f42ec814010f8757c5152bef77de2a6fb02bf26718bc32169ea0b835e288c8a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhMGYyOWIyYzE3MTIwYmVkYWE2NjhlYzU4MWFkNjQxYzRhMzViMGE4MDhhMjc0ODNiMjk1OWMwZGEwYzhjYWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEzZTVkODVlMzUxMzczMTkzMGNjMjIwZjE2NGIyZjIwM2FhODhiOTRmMDgzYTRjZGE4ZmU2MmZiZmEwZDU0ZTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVkOGUyMTI4NjZhOWU3NWU4ZGUxYjg2YzgxNmMzYWVmOGZhNmU4ZTYyMzEwM2FiYWM3ODFhODc4ZTgxZmUwZDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRjYThkOTUwNWRlNGVhOTY0MjVjZWFhOGIzYjc4ZmI0YmZhY2Y1NTVhYmE2YjBmZGQ0Y2RmNDg2MTM2MzY2MGUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_416db310df4444a7ba44acd35aecff49",
+      "statement": "POST /v1/messages/count_tokens runs synchronously and locally via count_tokens_anthropic without contacting upstream and returns only input_tokens.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/routes/messages.py#L21-L23",
+          "version": "repo-lines-v1:sha256:0a1a368388b4b60e444adf9608f5fcb919794873fbc5332caaf01024fa919fc0:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmMxYzA5NjEwZWE2ZGZlNTdkZGQ3MmU5Njg3YzZiYzRhNmY2ZjQ5YzlkODJkZTY4ODNjNmZiNzk0NzMwY2U2OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjE2YzNkYjI4NjhlZjJlM2FiZDEyYzdmM2Y3OTI4YzljNmVjNGQ5ZDY1NDM4MjQwN2I1MzE2OWNlZTBjNDQ4MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDlmYzMyZjc0MTNlNzMyZjcxZTk2NjA3ZDQyNTE3OTFlZTNjMThmYTRkNDU0NmNhNDlkNjNjYmIxNDQyZTRmNiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/tokens.py#L56-L81",
+          "version": "repo-lines-v1:sha256:94b7bb355b9aa6a501eb2c3f49976833abecc7d3819998b7024315f1c8629d20:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgzMDA4MDcyNmJlNjI1NzU0YmU3OWM0ZjY3OWE0YzFkODM1ZWFiYWMwYTU0NGQ4NWI4NDYyZGM5NTg2ZmMzNGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQwODA3YzUwODhhMGViNWNjOGZiN2MwNjM5ZWRlNDczYzczNDRiNjNmZjBmYmQwM2NhMTQxYWIyODgxOTVkYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE3NDU0YzllNjU2MTU0ZmVjMzA1YmYzNDM4M2I5YmIzMjA5MWUxMDZlNDNkZmUyZGRhYzhlYWMwNjIwNTY0OTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5fb66bb2e60f4b8bb7e1d38198bc2a5f",
+      "statement": "Local token counting uses tiktoken o200k_base as an approximation of Anthropic tokenizer with fixed image and document baselines and a per-tool-call overhead.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/tokens.py#L1-L16",
+          "version": "repo-lines-v1:sha256:3315f4b8f9d36c77f091058067a76cea84b7dfc16fbbf4839711d9223337e13c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxODZkYTQ1ZGNkNmRiODhmNmQ0YzVmZWRiNjUzYjBkY2FjODMxNWU2NDhkOWQ2YjkwOTBlNGUwMDViNzAwMTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4NmZjZjRiOTVlMGU1NTY5M2Q2NDQ5ODU1NDVhMjVhZTRhZTg1NGE1ZmRkZDdmY2M0ODNiZWZiMTAxMDc5ODgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBhMzgzZWY2MjcwYzgxNDM4MThhNWEwNTE1OGRmOTgyMDg0MmEzNDY1NTcxMzAzZTMxODgzZWQ1ZjNmMzFkNmYifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/tokens.py#L25-L53",
+          "version": "repo-lines-v1:sha256:6fc78dcee63b9e8cff5d2c3588b3d04b66cc92fc913e4931d99c64ba12027279:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4M2RmZmUwMmZhYzA3MmI4NjBhZDI2NzUyNTNmYzFjMWFkZjM2ZGY4NDI2ZDc4ZTQ4NDNkZTBiNjgyMmY0ZjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQwODA3YzUwODhhMGViNWNjOGZiN2MwNjM5ZWRlNDczYzczNDRiNjNmZjBmYmQwM2NhMTQxYWIyODgxOTVkYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZmOTZhMWJmZDFiZjkyZmE4NDk3NjUwZTk2OTgwODYyNzg3ZGYxY2JkYmJmOWM3NGYxMTc3NzY1ZDNlNDg5OWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMxYjRjMzk4OTI3NzIwMmI4ZjIwODA2YzM3YmY5MDBjYzgyZmFiYzgzMzNhY2UxZTIwNzQ0NmIyYmY0MmJkM2EifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_bbbb843b982642c9a34dc31061c5fa59",
+      "statement": "GET /providers merges configured providers with the in-memory status dict defaulting untouched providers to unknown, with entries written by record_provider_status on upstream-contacting pipeline outcomes.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L285-L323",
+          "version": "repo-lines-v1:sha256:a1a9575ebd4510887be4e1bf6bfe1fef0253ac25680965b89fd5aa2df75d725b:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTVjNjZlMTdiMTQ1Mzk3ODM0YjhjODU0ZGM0MTkzZTIxMjUxODBhODk5NmExNGMzMTg4MzMyNmIyZWZiY2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU4NjJkZDBkOGUwZWY2ZTc2ZDczNjY4ZGFlNzQwMjE2YzA0NWYwZTJjMjBjOWE0YzY4OWFiODcyNWEzNGViMmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBlYTgyM2U0ZmJlNmMyYzMzYjNjYTdmNzYwMTgyNTk3M2NhY2EwOWJlMDQ4MTE3YTkxMTM2YjFlMzMyNWRlMzMifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/health.py#L16-L48",
+          "version": "repo-lines-v1:sha256:6a799e3ded3a1a036848bbeb7245954e6576015fe812c96d23b97bab1808c569:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYxMzcxMDc3ZTg1YzE3ZmIxMzRmMGM3YjBjOTI5ZDY0OGFmNGM5OWQ2ZGM3OWIwOTQ3MTI2OWQzNDYyYTRjZGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2ZmZhMzU2OWI1NWQ4NmVhMGYzMjE1YmMwMjNiMGZjNzM4ZDlkMmQwOTBlMTk2MjA0YTdkMjNkNjU1Y2I0N2MiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE1MDVhZTg4ZDMwNDc0MjE0ZDJhYWM1YmQ2N2Q2YWRiMDc4OTMyMDY0MmQxMmYwOWJmNDI1NGI0Y2Y0MmIwYWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_18499ce4c141478fa426b08c4ac44c50",
+      "statement": "format_error emits the Anthropic error shape for anthropic inbound format and the OpenAI shape otherwise, and format_stream_error emits the same envelope as a single SSE frame with event prefix only for Anthropic.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/errors.py#L10-L35",
+          "version": "repo-lines-v1:sha256:6b033cbdf50d409857020f0d6c81f6032410ca337d1dad76394a806770d26d48:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU4MTViZTNhYWRlYTEwZDAyMTFlODMxM2JiNjYxMWJhYzA5NjczODZmNDZiMThiNjA2ZTc2OTk5NTYwMWQ1ODYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3MDAyYmQ1NWY3YmNjMDRiY2ZiZTQxMzJjZDIxYTZjYTI2ODQxODMzOTYzYjM3MThkYzczNzc0YWRhNDU1M2UiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlmM2ExY2UwNTdjYmY5YzgzZDc2Zjc4NzU1YWM1NTBhMmEzNzU5OTUwMWRmZmI2MWI5NDk1ODBiNDBjOTQ3MGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

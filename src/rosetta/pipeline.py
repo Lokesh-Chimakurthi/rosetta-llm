@@ -111,8 +111,17 @@ def _resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, 
             return _resolve_model(inner, config)
         raise ValueError(f"Model id '{model_id}' has gateway prefix but no provider/model")
     if "/" not in model_id:
-        raise ValueError(f"Model id '{model_id}' must be in format '<provider>/<model>'")
+        # Some clients (e.g. OpenAI Codex CLI) strip the provider prefix, so the
+        # operator may name a default provider. An empty id is never routed.
+        if model_id and config.default_provider is not None:
+            return _resolve_model(f"{config.default_provider}/{model_id}", config)
+        raise ValueError(
+            f"Model id '{model_id}' must be in format '<provider>/<model>' "
+            "(or set 'default_provider' in config to route bare model names)"
+        )
     provider_key, model_name = model_id.split("/", 1)
+    if not model_name:
+        raise ValueError(f"Model id '{model_id}' must be in format '<provider>/<model>'")
     provider = config.providers.get(provider_key)
     if provider is None:
         raise ValueError(f"Unknown provider '{provider_key}'")

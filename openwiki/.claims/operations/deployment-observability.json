@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:aa427a337f1ed05da52d0d8ee82e8d6f5a0e0cb59ade5e4959287ff3fefe872e",
+  "claims": [
+    {
+      "id": "claim_3ea4d5d7ac8a44b5894dddb16e8c4b03",
+      "statement": "AuthMiddleware and RequestContextMiddleware are pure ASGI rather than BaseHTTPMiddleware so SSE streams flow chunk-by-chunk, with /health and /providers public and Bearer or x-api-key accepted on protected paths.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/auth.py#L1-L43",
+          "version": "repo-lines-v1:sha256:d1016da3cdc2a46b4892fdc36ab6f0bba1cb7cdfdc13f1895b3655fa54841c0d:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE5M2QzNWE3MzllZmRlM2FmMTJhZjE5MmY2MWFmMTIwYjljNGRhYzQzMzQzYjBjMTA1NmUyMDJhZjcxODY3NDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVlN2JjZDM2ZWY1M2I0NDUyM2U2NWU5OGQxOTQ0OTkzZTBmZjE3NDZmNTUzNmMxYTUxMTc0NmYzZTAxZTc1NmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA2MmZlMTgzZmQwYmUwNWJlYWMyYzU0MDAwYjJlZGViZTM1NGQwZjdkNTIzNjMzNDc0MmQzN2MxMjMwMmUzNDEifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/observability.py#L98-L138",
+          "version": "repo-lines-v1:sha256:8a2c23566fb259b1488b439287fffd22a013dfae2f4921f8bd9d021ee9a3493e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjNmRkZDBhNDhkMzlkYjk1YzRiNTAxYTQ3ZWFjM2M2ZGI0YjQ3YzhmNTFiNjdlZTg3YTNkZTQ1MzE4NzUzNTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3Mjc2ZDUyN2MzZDkwNmFkYzlhNWVkNWJjMjE4ZjZhMDVjN2E5ZjgxMDk4MDA4ZjU1Y2FmY2MzZmZiMDRmYzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRlNzdhYjFiOTY0MGZhNjNhYTZkY2JmYzE3YmNmNDJhMjAyZTA2NDY3MzdlYWY3ZjkzMWExZTBiNDljMWYzY2QiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM2NWEwNWY1YjA5ZWQxNjUxN2UzZWU5Y2UxYzU2ZjQzMGI1ZjRjMmE3YmM1YzkwNTQ0MmZiYjNmNTc5OTU1Y2YifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_15518a00ad104f76bf3848ab94a06e26",
+      "statement": "UpstreamClient maintains one httpx.AsyncClient per provider with x-api-key for anthropic format versus Bearer for OpenAI formats, merged extra headers, per-provider timeouts, and HTTP/2 disabled.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/upstream.py#L21-L41",
+          "version": "repo-lines-v1:sha256:02dcfa6e11bcb81ea78966f5559177866e2b0332a502e40a725d114b394eb589:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjNmRmYmI3NmM1ZmNjNGJjZDM3MjU4OTUzNThjZThiY2VhYjVjYjVlYjEyNjMwNzZlYzljYWExNjdlZWMwMzQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU1MDMyZTk2NGQwOTMyMzUxZTVkMTg1MjY5MjgxYjE3MWEzYTA5YjA4YjI4NmU2NjFlYTQ3MDMyM2M4MmViNGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRkMzcxODNiMjgyZDk0MjZmNzNlMGVkNGExMGE1ZWNmMGRhNjhkNzU1OGYxMmEwMzA3ZDBhYmIyYmMzODU2MTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNmNTc4OGMxMTJiYmU5YTRiNzg3NzVlZjM1NGVmMTVhMzk1ZjQzZmNlMmY1ZWRiMWE4YTkwOTc1NTIzYjU4NTAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_1f979249bc3845e39c0e937eb09a9b78",
+      "statement": "Upstream stream raises HTTPStatusError with truncated error body on 4xx/5xx so stream codecs convert it downstream, otherwise yielding raw byte chunks.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/upstream.py#L68-L91",
+          "version": "repo-lines-v1:sha256:d0bdc1d87d37954e026b39e054497aac8a0ee47de7749c8882fe3f520acb7d91:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNiM2VjYTM1OGFmNjcyM2ViOGU1MjhiOGI1ODkwYTlhNmZlN2NiODM1Y2ZmNjU4MWZhNzMwNjFjMGM0ZTU1ODUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4YmU1MzAxNzk0MmExZGUzZDk3NDU0MmU3ZDVmNDg0ZmI3MmNjNGI3MzY2NDFhYTQ1NmRiZmFlYTNiM2QyOTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4NzI5ODQ0NmY4ZjM5ODkxOWMxOTdmZjZhZjM3MWVlNmVkZmYzZTRkOTY3ZmU1MGM5YTQ2ZmQ4MjU3Y2EzNzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d332fe007b55489eb0a2b6787d77c976",
+      "statement": "App lifespan starts upstream clients, fires immediate plus 300-second periodic model refresh tasks, and on shutdown cancels both before closing upstream clients.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/app.py#L21-L55",
+          "version": "repo-lines-v1:sha256:db866385bb7292a320f152f8463eeeb4e0c33ae49715ad640a87dcf85d6fc8f3:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5YTg1YWExNmE2ZThjOWRhNzZmYzcyNjExYmNhMDNkNDE1Y2YyYjkxNGUzZWQwYzg2MWQxNjQxMmY0N2VmMGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM1ZWQ4NmE1NjI0NjkzYTIzMGMzZmY2Mzg5MDFhMjAzNmI1MWY1Y2ZjYjM1ZGUwNzM5ZjRkYTc0ZTNmYjdmNTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ4Yzc4NjU5OWYxNDVmMDg2NThkOWIwNTc0MWVlNTE3NjNiODlmZGY0MTY0MTFiOTk3ODJkZjIxNzM2MzVlODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcyZmFmMzIyMjhhMDJlZDliYmQ2YWVhYjZlM2FhNDA0MjYwZGQ5NmFjNDA0ODcxY2Q1MGNhYzdkODFlYTQ1YWQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_88020c60b24f48a5b49372ce1e25c49b",
+      "statement": "RequestContextMiddleware binds request_id from x-request-id or random hex plus method/path, echoes x-request-id on responses, redacts sensitive headers, and caps debug bodies at 8192 bytes.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/observability.py#L51-L138",
+          "version": "repo-lines-v1:sha256:fbd6fda136debcec482c60faccafedc9fabb28c0ea875833befa451a7fb8fd93:eyJzZWxlY3RlZExpbmVDb3VudCI6ODgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2NzdlZjM4ZDMxNGVkMzEyNjFhODZjODM5NWY0ZWUwODg4OGEwYjZmMmExMDBiNjE2MWU5ZDdiMDU1ZTE2MDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3Mjc2ZDUyN2MzZDkwNmFkYzlhNWVkNWJjMjE4ZjZhMDVjN2E5ZjgxMDk4MDA4ZjU1Y2FmY2MzZmZiMDRmYzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImEzMzUyMzExNGM3NzQ2MjNmZWMwNTgzOTk0ZjAzNjZmYzkzMWViM2RlNjFiOThiNzg2YmU1NTcwMDA2MWZhYjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM2NWEwNWY1YjA5ZWQxNjUxN2UzZWU5Y2UxYzU2ZjQzMGI1ZjRjMmE3YmM1YzkwNTQ0MmZiYjNmNTc5OTU1Y2YifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e5f5514831a642699bae7503af205981",
+      "statement": "Production Dockerfile is a multi-stage python:3.13-slim build running as non-root app user with ROSETTA_CONFIG at /app/config.json, /health HEALTHCHECK, and default CMD on port 7860.",
+      "evidence": [
+        {
+          "resource": "repo://Dockerfile#L1-L50",
+          "version": "repo-lines-v1:sha256:51b9844d678933e1ef260ab74b4c51c27f70145e707ac491d39a1fce0d63fd19:eyJzZWxlY3RlZExpbmVDb3VudCI6NTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRmZTZlMjUxNmM5MjBmYzk1MGQyNDhlZGZmOTc3NDMxMDdiN2Y2NmI4YjYzZmEyMjVmMzhjYmZlMzc5ZWViYjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMzZjBlN2Q0YTc1YzI1MmEwN2YzNWZmOTVkNzU5MzZlYjc0Mjk1ODNkMDIwMDFlN2U1ZDNmZDMzNjc1OWMxYjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

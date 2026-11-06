@@ -192,3 +192,32 @@ def test_streaming_arguments_partial_json_buffered_correctly() -> None:
     full = "".join(fragments)
     parsed = json.loads(full)
     assert parsed == {"city": "Paris"}
+
+
+def test_stream_options_include_usage_injected_when_streaming() -> None:
+    """A streaming Chat request must ask the upstream for the final usage chunk."""
+    chat = {"model": "m", "stream": True, "messages": [{"role": "user", "content": "hi"}]}
+    ir = oc.parse_request(chat)
+    rendered = oc.render_request(ir)
+    assert rendered["stream_options"] == {"include_usage": True}
+
+
+def test_stream_options_client_value_preserved_not_overwritten() -> None:
+    """A client-sent stream_options (via raw_extras) wins over the injected default."""
+    chat = {
+        "model": "m",
+        "stream": True,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream_options": {"include_usage": False, "custom": 1},
+    }
+    ir = oc.parse_request(chat)
+    rendered = oc.render_request(ir)
+    assert rendered["stream_options"] == {"include_usage": False, "custom": 1}
+
+
+def test_stream_options_absent_when_not_streaming() -> None:
+    """Non-streaming requests must not carry stream_options."""
+    chat = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
+    ir = oc.parse_request(chat)
+    rendered = oc.render_request(ir)
+    assert "stream_options" not in rendered

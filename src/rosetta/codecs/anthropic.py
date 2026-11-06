@@ -179,7 +179,7 @@ def _parse_content_block(
                             strict=catalog_tool.strict,
                             deferred=catalog_tool.deferred,
                         ),
-                        catalog_tool._raw,
+                        catalog_tool._raw if isinstance(catalog_tool._raw, dict) else {},
                     )
                 )
             else:
@@ -226,7 +226,7 @@ def _parse_content_block(
 
 
 def _render_content_part(part: ContentPart) -> dict[str, Any]:
-    cc = part._raw.get("cache_control") if hasattr(part, "_raw") else None
+    cc = part._raw.get("cache_control") if isinstance(part._raw, dict) else None
     if isinstance(part, TextPart):
         block: dict[str, Any] = {"type": "text", "text": part.text}
         if cc:

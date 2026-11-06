@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:104cc3e150091b882c78c0fcd318ead8f9e8ff3e6ff07d6677a0410c6f1e7c05",
+  "claims": [
+    {
+      "id": "claim_5fb81b98b34f45a0a9ec57236d28e07a",
+      "statement": "pipeline.handle is the single choke point behind all three inference endpoints and branches on inbound_format == provider.format to passthrough versus IR translation.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L123-L177",
+          "version": "repo-lines-v1:sha256:49cff399847f74aa1680dc1c2211c3530f16cc79b77d7ca30eea695f6b74eb0e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU5MjdiMzIyZDY0YzdlODM5N2U1OTY2NjY1M2IzOWY4ZjJhNDJiY2Q4NDZkNDk0NDI3MTI3YjI4ZjI2YjdiZmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE3OWVmMzk5M2EzNDNmMTk0ZWVjMDYyNTcwMTZjMDM5MjVhNmJkNjA2YTE3Yjc3Njk3YzUxZmEyODJkODRjY2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlNzg2ZDFlOTFmNGQyMmZjN2JmMmU4NDRiMmYwZjNkNWFmZDI4MDZhZGY2NDYxNmVkNWQ2MmI4MDEwYmU1ZmIifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/chat_completions.py#L15-L17",
+          "version": "repo-lines-v1:sha256:6acbe68e999b6e2197177908d9db922347d0473a5cbba3cb478abc5228088003:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjA5MGI4NGI5MzkwZWM5OGVkNzRkMmQyMTVhNjBmNzg4OWY3NzRhODYyOTc1YjhmZWY4MGQwNDIxOGViYjZhYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzVhYzIxY2JiMmI1OTkxYjM2ZmFkNWU2Y2MxZTY3MDgyYjhiNGEwNzBhNzUxOGY2NzA3NWZhNjg3YmIzZjRiNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzAzMzQ4ZWQ5ZGY5ZmRiZTcyYjMyMDY4ZDBmZWVhNzhlYjcyNTZiNjMyYzBjMjdkM2MyODJkYTY1MTZjYTRiMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/messages.py#L16-L18",
+          "version": "repo-lines-v1:sha256:886d49aab9ac7013da88738540ea96a00c33444677c3aece5b411eb495e6714a:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWYzMzhlM2Y1NDA5ZmRhM2ZlNmRiOTIzZTJhMDVhMzY1NTNlYWY0OTFkZDk0ZmU5M2M5OTJkMzA5OTlhM2Y3ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzRlM2UxOWQ1ZGZhOGQzNmZjODExNjdlNmYyM2NiYjUzMTAwZmJhZjA5OWE2MDkwMDU4OGVmOGExNjI5NmEzOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDM4YjY1Nzk1ZTdmMTdiYjcyNjAyMjVjZTZjOTI5NmZhYmJjZTQ1MzVhMDFmMzgzNTFlZWFkMmNhMDEwMmI4OSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjEyZmJiNzY1NTkyY2NjZGNiN2Y2ZGMxYjllNjJjMzg0NTE1YmEzNGRlNzk2YzMzODhiOWRmYzIxYThkMGVkNCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_a58a9b4aac204442af1fc1897950c5d1",
+      "statement": "Model ids must have shape <provider_key>/<model_name> split on the first slash with optional static-table remap to effective_upstream_name, and the claude-code/ prefix is stripped and re-resolved recursively.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L102-L120",
+          "version": "repo-lines-v1:sha256:c6e7c7196d9d8b43230280f978dcefe8a90256bc5432905857ea9ee9b6269f14:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlZGFlMzA3OGUzMDUzM2M0MGRkZTUzYTg2MjI4MzFlODJjMTNiNDY2Nzk0ZWE5OWRmMGIyYzdmNTU4ZDJiMDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNkOTY4NjcxNjJjNjNkZTA2ZmU5ODNmNmQxNDRlMmVmNDUzNjc3OTUwNzk1YTc5ODc2NWI5MmM2YmUyNTFkODkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmMDliYjFmZGQ1OGYyMDk1ZjE4NjE0NzExMmZiMTQxNjMwZDY5MjFkNmRmNjdhNzFiZjhmOTcxNGY5MjI1YmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAyZTAwODUyNTkwMDJiMDRjMzE4NzBlZGVlYWFjYjZiNzUyZTA3MjU1YjUwYmQ1NmM1ODYwNjQ2MTM0YTI1NzUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b852fb0bda8c4f568e40da1868fe941f",
+      "statement": "Only anthropic-beta, anthropic-version, and x-claude-code-session-id are forwarded upstream on every call.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L83-L96",
+          "version": "repo-lines-v1:sha256:b5b578037f22d33732285aa857de84760c6d66b6f968994c801beba18da06370:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmYmMxNzY4NGFiYjBiMTM1M2YyMTI0ODY4MDAxNTYzYzU4NWE0NmUyMDJiMjMxZGIzOWFiM2FjZGRkYjI4ODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkNDc3Mzk0OThhODVlMGQzY2E3NmZmYWZhY2M2MmQ4NjFmYzFjYWQyODg3OGVjM2QwYTRlMTQ1MDVhOTkzYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY4ZWZjNTMzYjY4ZTZmZWE5OTc5YjgzY2YwMTZkMDU0YjlmOGVjOGZiZmIwMmNiNmUzYzZlM2YyYTJlMTU4YjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBjZGQ2NTIyMjY2OWZjYTJiZmExNmFjMmJhYWI3OGZhMmUxOWJjOTVkN2FmMDA4M2Q2Mzc5NDRlNGE4Y2NkNDEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e8ff2f2727534272a971c32db9c1adcd",
+      "statement": "Passthrough forwards the copied body verbatim with only the model field rewritten and zero IR allocation.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L144-L163",
+          "version": "repo-lines-v1:sha256:fedad4156232d6bdb3f26752ecdd7ebcd4a34a2420f8f1463b5145578145cbdd:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE0MWNhMDBmMjRhYjk2Mjg1Y2M3NDFlZGYzOTA5MTcyYTQ4OGY3NmNkYzJhYzhhOTUzNjJjMTQyMmUwNTU4NWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImEzMjQ1OTQwZWVlNTIwMjBjN2IyMTdmNTI5YjA5NWYyMzE1YzdkN2UzMDU5MmM3ZGQ4YWI3MDc2ZWE5MzVmOTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0ZDI0YmE1ODRiM2U5OWI1YmQ5YTc5MWRlYTA2M2JlZWMzMzM5MDY0NjllYzlkYzliYzQ4OTVlZGQ1ZDY4YWEifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L180-L218",
+          "version": "repo-lines-v1:sha256:66b9adbac05911456c70b5976f099e1f52822739314780f3c9319560a69eef5e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYxMDIzMjA1ZGIzMTI5Y2E0MjU5ZTM2NWEyMTJkNGY1ZjAxZWIzODEzNGE1ZWNiZWNiZGFiNTY2MzIzYTI1NmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhjYzRhN2QxY2M3OTZhYmEzZTQ2NzIzMzI3ZjUxN2U5ZjgxMTk4MmQyNTBmMDcwMjk4NmU0YjU3NjRhZDk1ODkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZjYTRhMGQxMjMwNTcwYjAwMmE1ZDQ0ZTBmOWY0OTdjNWM1OTVhYWVkMTllMTMyYjA2NTU5NTE1ZDRlZjU2MTYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a2c8ec2b176045498a965f1a58739bf9",
+      "statement": "Non-streaming translation maps request IR failures to 400 translation_error, transport failures to 502 upstream_error, and non-2xx upstream bodies into the inbound envelope preserving the upstream status code via nested message extraction.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L258-L324",
+          "version": "repo-lines-v1:sha256:864b6764e8781d93c0b85e816e802993db317256557eebf76a78d3cecacb74f5:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTVjNjZlMTdiMTQ1Mzk3ODM0YjhjODU0ZGM0MTkzZTIxMjUxODBhODk5NmExNGMzMTg4MzMyNmIyZWZiY2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRhOTM2YzhjZTJkY2E1NjhkZTRmZmI2N2RmMGFhOThlODNjYzA3NTAxMWRkNTMzMjU2YTFhYWZjOWMwYjBkYWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJjYzk2YTFiMjI4ZmE5YTJhMjA4YThmNDJjN2ZlNzM3ZGI2M2EyMmQ1MmM2MzdmZDJjN2EyNDgxODUwZTM4MTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM1OWExYTlkNGU4M2Y5ODNlMTQwZjY2ZGQ1YzkzYzc2MmM5ZDAxNzAyOGY2ODU1YTE1MTRlZTlkYzE4ZTU0OTkifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L362-L371",
+          "version": "repo-lines-v1:sha256:d5ec91544652b483d0d004c037c4606cf9df440acaf486f1486e34bcf133241b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlYmE5MWY2NTY0YzUwMzE4YTRlNjAzYjgzMTk3ZjA3YmQyYzczNzVmNWM3ODc1NTczMTg2MDJiY2Q4NzI1MTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyZTUyNTkwMzcyNjQ4MzdlNGJhNzQ4NmIzZGVlYmY2NTVkMGVmZmJhZjRmZjMzYjJjZDI0YTk3YzA3OTY1OTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBkZGZkNGNmZWY2ZWFiOTc5MTE4MTlmYmZmODgzMDYwNmJhNDQ4Yzc5OGM0MDUzMGNjYjM2MDgyZTljM2FkZjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_1daabf6e11ee41fd874ed0abe9ea4a46",
+      "statement": "Streaming translation chains provider stream-parse to optional Anthropic-only wrap_with_ping to inbound stream-render as lazy generators, polling request.is_disconnected per chunk and converting transport versus translation failures into distinct stream error events.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L327-L359",
+          "version": "repo-lines-v1:sha256:44de95f8a353b0d5745c01a01d1f9f29e4da3b238dab10810261d35da7af6ebb:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3ODk4YWQ3N2Y5OTYyMjc2NjVhM2JiZWJkZWY5YmJiZDkwZmNjODYzYzA4Y2FkNDVhYjM1ODA5Zjg4YWQwNDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjODU0M2EwYThhZWQ0MTg2N2EwMzU0ZGU3MWZkY2FmYjk5ZDZjZTkxODI4OTlmZWYzMmYzYjJhMGNmZmVkODkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBlYTgyM2U0ZmJlNmMyYzMzYjNjYTdmNzYwMTgyNTk3M2NhY2EwOWJlMDQ4MTE3YTkxMTM2YjFlMzMyNWRlMzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxOGIwOTg1ODRmMjJjZDk5ODg1ZGZhMGVkYTA1MDAzYWE5NTA3ZmUzMzIzZDU1ODBjOTQ0ZWRiYWNjYjFkYmQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0070fe58b9b04a4aaca8a1d5bf547fcf",
+      "statement": "Upstream-contacting pipeline outcomes (successes, transport failures, non-2xx upstream responses) record provider ok/error status into app.state.provider_status for later exposure via GET /providers; pre-upstream 400s and response/stream translation-error paths return without recording status.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L285-L323",
+          "version": "repo-lines-v1:sha256:a1a9575ebd4510887be4e1bf6bfe1fef0253ac25680965b89fd5aa2df75d725b:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTVjNjZlMTdiMTQ1Mzk3ODM0YjhjODU0ZGM0MTkzZTIxMjUxODBhODk5NmExNGMzMTg4MzMyNmIyZWZiY2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU4NjJkZDBkOGUwZWY2ZTc2ZDczNjY4ZGFlNzQwMjE2YzA0NWYwZTJjMjBjOWE0YzY4OWFiODcyNWEzNGViMmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBlYTgyM2U0ZmJlNmMyYzMzYjNjYTdmNzYwMTgyNTk3M2NhY2EwOWJlMDQ4MTE3YTkxMTM2YjFlMzMyNWRlMzMifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/pipeline.py#L327-L359",
+          "version": "repo-lines-v1:sha256:44de95f8a353b0d5745c01a01d1f9f29e4da3b238dab10810261d35da7af6ebb:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3ODk4YWQ3N2Y5OTYyMjc2NjVhM2JiZWJkZWY5YmJiZDkwZmNjODYzYzA4Y2FkNDVhYjM1ODA5Zjg4YWQwNDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjODU0M2EwYThhZWQ0MTg2N2EwMzU0ZGU3MWZkY2FmYjk5ZDZjZTkxODI4OTlmZWYzMmYzYjJhMGNmZmVkODkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBlYTgyM2U0ZmJlNmMyYzMzYjNjYTdmNzYwMTgyNTk3M2NhY2EwOWJlMDQ4MTE3YTkxMTM2YjFlMzMyNWRlMzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxOGIwOTg1ODRmMjJjZDk5ODg1ZGZhMGVkYTA1MDAzYWE5NTA3ZmUzMzIzZDU1ODBjOTQ0ZWRiYWNjYjFkYmQifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/routes/health.py#L16-L20",
+          "version": "repo-lines-v1:sha256:f318a148bc58beeaa10c905f8a3cf63c00a14b1506b2d831c7919ea18c54f568:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjEzNzEwNzdlODVjMTdmYjEzNGYwYzdiMGM5MjlkNjQ4YWY0Yzk5ZDZkYzc5YjA5NDcxMjY5ZDM0NjJhNGNkYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDg5M2Y0MGUzNzgxZWI4OTZjODJkMDQ2YTA4MDY3YTExZTM1Y2RmMmYxZGZhZjI2ZmVhOTBiOGRiNjY3NjQxMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTUwNWFlODhkMzA0NzQyMTRkMmFhYzViZDY3ZDZhZGIwNzg5MzIwNjQyZDEyZjA5YmY0MjU0YjRjZjQyYjBhZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzMxMGRkOWU4MmZmM2VlNmExY2U4NjUxYzJmOWYyYWUyYmZkYjRkZjJkNmM3NGY5YjViM2FlNDI3MjFkN2RjNCJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

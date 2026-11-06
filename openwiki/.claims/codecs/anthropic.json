@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:f0eea5aace4be5b07740e4f6b74b47649872589df95327ed8ee604f7b1a896f0",
+  "claims": [
+    {
+      "id": "claim_06f64ecbf9c844e29a7a23450450f01a",
+      "statement": "Anthropic reasoning fidelity uses signature encoding f\"{encrypted_content}@{reasoning_id}\" split on the last @ for decode.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L135-L147",
+          "version": "repo-lines-v1:sha256:8bb5eb5130b2697b14639e2cd56364f4eaaadf2e223c796ac98d7c5309478e25:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4Yzg2NzYxMzQ0YmVhZGIxYTdlYjQ1MWNmNmZlYjVlMTZiYTZkZWI2NjhlOTNjM2VmNjRhYmIzYTNlYTg1YTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiNjlmNTQyYmI3ZjM1YmQyNDFjNTlmMmQ4ZTRkMWJkZDMxOGI5MThjZjFmZTQzZmIzN2M4MGRiY2Q0ZjQ2MGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ5NmMwNzQyNTI4MTYxMWZlNDdjMjc3ZTQyZjdjYzYwMzZkNjBiODNiN2Y4YzA5YTAwODdjNTZmYzE1YWNjOTYifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L53-L66",
+          "version": "repo-lines-v1:sha256:b9536e8e33a70ccbd77b491b012def0060e3e24ea23229fe98d5e1c1bb67d464:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjllMmUwZmViMzgwZGJmMGQ2ZWNmNTU2NjIzYTQxN2QwODM3NjJiZmIwYmJkNGZjM2U5MmU2MDMxYjk2MWE3YWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk0ZDc4NDZiYzg4MmVmYWQ2MGY1MGE2Y2U5YjE0MzYyNDhkYWMwNzE0M2IwYzdkMTk5ZTY4YmU0Yzk0MjkyNTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE5OGIwNjNkOWI0N2U2NTM3OTYyNTU3MmNjZTE5NzY2OWQ1NzY3ZTEyYzE4YmUwNzU2NTJiOGNkOTgxY2U4ZDUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc1NGVkMDE2ZDUyOTYyZDdiNjUxM2IyYmRhMjE4YjUwOTE2NzBhNDQ2MDdhZWFhMDZjYjY0YjA1NjdhYTliMWEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_2bbd2ccc01f7443e9eb88414543c60b8",
+      "statement": "Within a user message all tool_result blocks must precede any text block and _enforce_tool_result_ordering auto-repairs ordering on render.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L306-L310",
+          "version": "repo-lines-v1:sha256:b5d8c23cb86f7dd4255874e2789e2e622f6adb872e71b457cfd1f805e4773839:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZGRlNDUwZWQzZGZlNGM5Y2ZjNjViZDdmNDQ1M2RlYTQwMmYwNjk5ZDY2ODkzYTkzYTRkOGZlMzg4YmVlMzdkZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNzhjN2E2Y2JjZGQzOTQ3NTEzMWY2NDFiYTJiNWUwMWMzYjEwOGUzOTE2MzM0YmM3ZGQzYTU1NjAzMDgyNWRmNiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGNjNGE3ZDFjYzc5NmFiYTNlNDY3MjMzMjdmNTE3ZTlmODExOTgyZDI1MGYwNzAyOTg2ZTRiNTc2NGFkOTU4OSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYjIyMWY1NmRhNjk3NjgzN2Y1MThkZTkzN2YyNDQ1MTNlYTljYmNkODIxMDgyZWM2MDFkYjdkZGFkNDY0MzU0ZCJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L340-L344",
+          "version": "repo-lines-v1:sha256:65488e30ffd9969eff0501d95ecb9bbefad55a344a52a31ec21dedde9e92cbee:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDUxNzc3NGExNTE1ZDk4MDdkNjFkMjBlYTkwMDhkZjY4YmUxZWFjZmZjYmYxNDMwNTQzMzI3MWU3OWI4ZWYwZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDkwMjI5NDEzYWI1MmVjMDQxYjNiNDZmNjg2NGY4MWYwNzZlNzJhMTE1NDA2ZDdmODg2MmQ5ODlmNWMwMGYxZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNmYxNzI4OTNkZTBiODNhN2I1Y2MzMTA0ZjRhYjc5ZmI4Njg2MGMyYTY1NGE2ZTUzZmU3NDU1Zjk5MmMyOGY5MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTNjZjA2NTdhOGJiODliOWJhNDhlZDE5NzllNjYxOWU2ODJkYjdjYmY2ZWFlOTA4Yzc0NTc1NWVjNjAxZWMwYiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_45c69e1ee19e433cb4bebee8396af346",
+      "statement": "Anthropic tool_use.input is a JSON object on the wire and is serialized to arguments_json_text string in IR via orjson, deserialized back on render.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L188-L194",
+          "version": "repo-lines-v1:sha256:ea6c6a73ac00653e7279957c8c508f592c94125236a256fc26212698f2ef1d96:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmM4YWRjYzAzY2ZmMWMwMmY2NjU4ZmI0MmNkMTlkYTI2Y2ViNDk1M2EyMjMwOWFiZmMzMTFiM2UwYjIzMmQ5ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTZiMDQ0OTE0Njk3MjJlODM2M2E5NGU0MDQ0NTM4ZTAxM2EyYTIxN2UzNmIxZTU2OGJhNjBhY2I3YjRjOGYyZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYjk1N2NlOWU0ZjA0ZGJmNTFiZjJmYjU3OGEzNWRlZjQ5M2Q3NzE2N2FlZDdmMmFkMGI3MjQxNDkyMDljYzc3MSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYjk1N2NlOWU0ZjA0ZGJmNTFiZjJmYjU3OGEzNWRlZjQ5M2Q3NzE2N2FlZDdmMmFkMGI3MjQxNDkyMDljYzc3MSJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L69-L83",
+          "version": "repo-lines-v1:sha256:e134b2c8bd03fab9365685f00c854836d81c2b9d8ae8c915db701a87abf94bdf:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBhOTQ3NDFlOGIyZTJjN2U5ZTEwYjNmMzIwNDIwZGE2NmJiYmZkOGJlZGZiNTgwYTJhMWY5N2E3OTE5MDFiOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZjMGY1NWRkMmU1ZGI4ZjI0YmY2YmNmYmEyOTJmYTZkYzhhYjUxYTBjZWRiYjhjNDMxMTZhOTM5OTVjNDkzMDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE1ZGExNDNkMGYxMWE2MDI2MGMyN2NiNDMwNTEzOTNkMTMyMWIzZGU3ODdhZWZjMzZjMTgxNWY0MzhmYjgyNTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIxMTUzZjY2OGQ0Y2I3ZmUzOTgxMzk1YWUxZDYwY2MzNjkxMTgxMGY2N2IwYjMzN2U3OWQ4NmE2NDRkOWUwOTkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8265d1088b7a44b5bf2e5608bd245a18",
+      "statement": "cache_control saved in _raw on text, image, document, tool_call, tool_result, and reasoning blocks is rendered back when present (refusal blocks carry no cache_control), and tool definition extras from _raw are merged into rendered tools.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L162-L222",
+          "version": "repo-lines-v1:sha256:54a4985932ba0884e34bf0f62d951bce87fe49434e874bebb09891ea6927dc30:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjczYzk0Y2VkYTAxYjQ5ZGRiYjJjN2IzOWQzOTA4NGI3ZmQzM2E4NjFlZWY3MmYwNmYzNzliNThlMDY1MjU2MGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY4ZDJiMTE3MDBhYTIzOGEyNzM5ZWIzNzI3MTcwMjk4YTkzNThjMTFjODE1YjkxMmU1MzA0OTNiN2RhYzQxNDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQwZTkxY2ZhMTVkNmM0YzZmZWI1ZGRlZmYwYTA4OTBjZGNlYzRmYjVjMjk2NDc1OWFlYTQxNGRlNDc0Yzc2M2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMzZTNjMDA2MDg1N2JmMmEzNzcxMzM4MjVlM2MyMGRkMGUxNjQ5MWI5YTUyNjliZGJiMzNhNzFjNDRmYTc2NWQifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L361-L370",
+          "version": "repo-lines-v1:sha256:8bab735ef79e4dfbda8f0b72b01d49198c3ada15f495d65435313131b6366dbc:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0MzI3MGIxZDZiMDE3NjhhZDc5N2RkYzhlZTIwZjE4NDllODVkMDNiZDZkNmM0NzVlYTI1YjkzNDAzZjBlMTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0ZmZlMmY4Mjk1YTUzM2NlNWMzOGViMTkyMTE0N2ViNzljOTEwN2E1Y2RiYzk1NDc4MGJhMjFiNTViMmFmNmQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI3ODdiMTM4OWIxN2I2NDQzOWZkZWIwYWJmNjcyMGMyODQ0YTUxNDBmNTUwNzkzMTQzZGU2NDY3MjIxODY2ZWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiOWY4ZGRmZjk2YjU1YmY0MGI5YmRjZmYxMTBiNjdhNzBlNzFmNDhlY2Y3ZWZmZGMzZWQ3NTkxZTMwMDJkZjAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_33281a6682b945de8f61c70cb3be567f",
+      "statement": "render_request always emits max_tokens and synthesizes 4096 when the IR has no limit because Anthropic requires it.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L313-L318",
+          "version": "repo-lines-v1:sha256:0ef6ed52ad444cb79a991a76b6a708a42b5d8aed1713671bb8eea1d78dfb2fe8:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOWIxMTg1MTIzNmU3NTcyZGE0NjUzZmIxNWJiNTRkMmQxN2RhMTc1ZjYxMjRhOGY1M2JmNDVjMjFlM2JhZjhhZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDg5M2Y0MGUzNzgxZWI4OTZjODJkMDQ2YTA4MDY3YTExZTM1Y2RmMmYxZGZhZjI2ZmVhOTBiOGRiNjY3NjQxMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTVhMTM3OTEwNzYyNmFiMmVkZjZkYzM1NGU5NTNmYTQ1MTE2ZDZlNmQ0ODI2MTdkODVjZTVmZDBjYTUyMDIzNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTQyZWQ0NDZhZDY0OTBlY2JlNWM2NTg0ZmFhMWUwZmExMDhkNzBmZWEwOGEzYTVhYzY3ZDUwZWU1YjM4NWQwYSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_25b8113829f34f9ab9caf99f6e049326",
+      "statement": "Tool-role IR messages are folded into pending tool results and flushed as Anthropic user messages so no tool output is dropped, including orphaned trailing results.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L326-L359",
+          "version": "repo-lines-v1:sha256:a52801e5fa3f9bfccab0dff1ccf1b61d57d4e8e39d95b6e437be65702e91690d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjZDkyNDIxYWJiM2NkOWI3MWIxOTQ3NDg1MmU0NDdmMTkwYmQ2YzMxNWFhNDFiZWQ5ZDkxYmY0OTM0ZmIyYjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJlYTM4YjRjZmMyZDZlOTM2ZWNkYzdmZGVhYjBmYWExNjIwMjNjYjI2ZDAzNjgwNDFmNWFkYmMyZTMyYWE5OGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2OTE4MDhiMmZmNGUwNDg0MzIwNzMzNDA2ZjJkNjQ0N2E4NDdlODFiZDIyNGU0MTE3NTJkZGM3YWNjZTM4M2EifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_19b05ccb094e47a483ee364bf7bde14f",
+      "statement": "Unknown top-level request fields are captured into raw_extras and re-emitted with setdefault so normalized fields win.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L284-L284",
+          "version": "repo-lines-v1:sha256:20f05725eefbfbcbd5544c364d0a98d617c2896e90894ec6625c9c9059359e25:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjBmMDU3MjVlZWZiZmJjYmQ1NTQ0YzM2NGQwYTk4ZDYxN2MyODk2ZTkwODk0ZWM2NjI1YzljOTA1OTM1OWUyNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjBmMDU3MjVlZWZiZmJjYmQ1NTQ0YzM2NGQwYTk4ZDYxN2MyODk2ZTkwODk0ZWM2NjI1YzljOTA1OTM1OWUyNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTBiNDg1MGMxNmJlOTUwYzY4NDBhNjhhZTgzYzZjZWMxNmYyNTVmNDMxYThmYmYyZDZlMDRmYzQwNTcxOWRhNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjA0ZTM2Y2Q0M2E2ZmZiYTJkN2I2ZWIwYzM2N2EyMjQwOGVlNDIyNjM3YTVmNWVjYTI2MDkwYzAzOTQ0ZDk5ZiJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/codecs/anthropic.py#L399-L401",
+          "version": "repo-lines-v1:sha256:553765baabb64ecdf3387eeb3ac9a7281e66da4e6c0b7342a20e295df0257f8c:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZWI0YmQxNzhjNTI0NjFjMmJlNTVhYTBmY2U0MzY1NGIyOTVjYzkwNWFkZTk2YzJiNDJiNTk4ZGZjNzg3Yjc2ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYmQ5YWFlYzQ1ZDQ0NDNiOTYxYjI1YmU0NjhlMDI2MDFjMmM4NGU1NmM5ZWU0ODBlMDgxZTU0ZTEyZGI2M2Q4OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDU3Y2IwMmI2MDc1YzE0MTBhZDA4YjNmNDljMjI5N2M1NTUwZDk4MDk3MTJjODk3ZDIzYjkxNTVhMzM3OWMyNyJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

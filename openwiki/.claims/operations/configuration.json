@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:2b528a53ba0981019812911682d10ad957e00544113d4d8def9adc29ea81ab60",
+  "claims": [
+    {
+      "id": "claim_d80a0b172ac749ad82ce586b44f31db4",
+      "statement": "Proxy behavior derives from one Pydantic-validated JSON document with host/port/proxy.api_keys/log_level/providers top level and per-provider format/base_url/credentials/headers/timeout/models shape.",
+      "evidence": [
+        {
+          "resource": "repo://config.example.jsonc#L10-L22",
+          "version": "repo-lines-v1:sha256:aaa46da957c6122424842bb4d520ced34f20e405cf1b054723d71467c6c0cb6c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUwOWVkZjhhOTU3OGEwZjBkMDk0MjZjNmViZjQ5MmNlNjJmOGY1NzQ5YWU0MjkzZGUyYmI3MjZhYTBiNzUwMTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg4ZjY5NjRmYWZlYjlkNDQzNDdhZGJkYzIzNDAyYmZiZTdiZWU0MmZlNDUzNDQ3OGM4ODdmYjJlYWI2YzY1MzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIyMTc3N2U5NzUzMmI5ZGZmZGVlZDA5YTcyZjMzNWJjYTZmODZlYWQ4NTZhMDVhOWMzYTRjZDdhMDU0Mjc0YTMifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/config.py#L43-L109",
+          "version": "repo-lines-v1:sha256:a2fb981f8ef2302dc433714154bb779eec8e22ba8e44759fa04caefa63daec9e:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4ODA1N2M2NGNkMTA5NWI2MGI2YmMwNWFjZDJhZmQxMjQzNmIyMGY0MjczMDZlMzVhZDQ5ODdlNDg0NmU4NWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0MjNiNjM3MTg2MzRlZTljNTc4NTMxYWJlZGU2MDNiNmJhNWMwYmI3ZmNhNDEyMmZlOGFhMGE5ZjU1NDA0NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUwNjA2ODAzMDliYzk0MmM2YjY1NzdiYTliMDBlZGM2ZjNmMDJmMzhkZDQ2ZWFlMjIwNjBjYzExZGYwOWI4MjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQyNTQ4MjBiMmUyZjJmMDdiODlmOWQxMzJmMmI3ZmNlYzU2MGFhNGI4MTkwZTliN2Q5NjVmMGRjMjI0NDg2NjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ea6351014ab343fb95dd1683d884e2c7",
+      "statement": "Each provider declares one of openai_chat/openai_responses/anthropic formats selecting upstream path suffix and auth scheme, with base_url as provider root.",
+      "evidence": [
+        {
+          "resource": "repo://config.example.jsonc#L32-L40",
+          "version": "repo-lines-v1:sha256:1ffc47d96563aaf9ce2d2a8f162cb9e5c6f15615f82fafd48597e2d4397bc50b:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTUwNjdhNmJhODA0ODE2YWYwZDRkNzhkYTlmZDUyY2I4Mjg4YmE4ZWZmOWE3NzhiOTE4ZmRjMTc1MGYxNmJhMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDI4MWM2YTU0MWM1YTlhNDIzNGY0MmI1OWRjOGMwMjhjYTMwNGY3ZjYzMzQ0ODc1MDcwZDMwY2ZlOTIzNjZiYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjc4ZjMyN2FkMmJiNWRhNzZjZGZiNmEwZTI3NGRkYTZmOWEzNjNiYmUwMDg1MjIwNTNmYmU4MTA4OTc1YjY5NyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMGQ0NWRhZjJiOWZhOTA4MDBkNDI5MzZjMzZiMjBiYjI0MWMxZjNhNjU4Y2U2NmZmZWU4NDU3MTcxN2VmMjhhYyJ9"
+        },
+        {
+          "resource": "repo://src/rosetta/config.py#L43-L52",
+          "version": "repo-lines-v1:sha256:098faa96ad7e4510cd2e59c147d2aa109e24c91c5b783e5801b65eda5d6a48fb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4ODA1N2M2NGNkMTA5NWI2MGI2YmMwNWFjZDJhZmQxMjQzNmIyMGY0MjczMDZlMzVhZDQ5ODdlNDg0NmU4NWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2ZDNkMTYyYjI4MGI1YWQyZjczMDZiYjAwZWQxYTNiOGE5YWFjNDMxYzRlMGE3ZjhiNDZhYTk2NjBhNjY5YzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUwNjA2ODAzMDliYzk0MmM2YjY1NzdiYTliMDBlZGM2ZjNmMDJmMzhkZDQ2ZWFlMjIwNjBjYzExZGYwOWI4MjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJmODExNDE3YzdmMjQwNmYzOTFhMDU5MWNkOTRkNGNiNTVkZmM1NzRlYzcwYzk4NjdjZWZhZjYxY2JiYjQ4YWIifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/upstream.py#L22-L29",
+          "version": "repo-lines-v1:sha256:0462d844173de3a13a4c1199163c3c73892fa8d95ee8a982d77b49b86791d15d:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMTQwYWQ0YzI5MWQ5NzgxYThiMjdkYWFlODdiMWYyMWY3NTgxYmUzOTc0NTQ0YjAwNzZkMjQ5MWExOTJkNzY0NCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzYxYjIyNGY3MmQ4NzU0YzQ1YTcyMTliZjgzZjZmMmIxNTUwODc4MzcyZjIyOGVkYjg3NWRjMzZlZGI4Y2FlMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiN2EzODUzN2EzNjk0OTQ0MjFkZjA0YmEyMWU4MTIwYjUzOGQ1YWRiYmIxYmU1OWM0NGYwZjE4ZTRlZDA0N2E0MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzY5M2Q4ZmM3OGE0NTZiZjhhZDk5N2U4Y2ZiZDU4OWJlMzc3ZDE3NTM0YWYwYWZkMzgwZGZlZDAzZDhlNDBlMyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_f52758c8584a49e78798a818966517ed",
+      "statement": "api_key_env and extra_headers_env resolve at validation time from named env vars raising when unset or empty, duplicate header declarations across literal and env maps are rejected, and secret values never appear in error messages.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/config.py#L54-L89",
+          "version": "repo-lines-v1:sha256:bb6dbff53df607c4d542c599663d13879cc2195e4713a5bb3ea01fca6c121563:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlZjFjZGQwZjU3NDMzY2U1MDc3OTA3MjJlMmY1MWQ5NzM1NmNiZmZhN2IyNGRkN2NhMTM0NDgzMmQ0ZTUyNDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEyYWIwOTBiY2QxNjIwZmE2MmVhZWUxNTdhNzRmY2E2MzVhYTI5ZTEyY2JmZmQ2MThiNTc5MmQ4N2JjMDNhM2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNkMGZjNTI3MzRjMzFkNDc5NzI3MWIwNDU4OWZkYWQ3OWMzYTVlM2U3NmFhNjFmN2NkNTNmZmRlN2E2NWZmN2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk4Y2RmZDZkYTQ2ZDljMTQ4NTNmMWNlYTNmNDhkYTE1ZmY2Nzk5ZmJkYzJkYjE0MWExZDJiMGRmNmY0NmVmYjUifQ"
+        },
+        {
+          "resource": "repo://tests/test_config.py#L22-L80",
+          "version": "repo-lines-v1:sha256:3f79eff640269831eb1188981e37df97d14a205e8a27ce0621e44f94324f15d2:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM2MGVhMThlNGMxY2Q3ZWVjZmNkNjM2NDZlYmNkZmQxNDI3ZDdjNjM3YTE4ZWQyMWRlNGQ1Y2U0ZGU3YmExNzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMzUwMmQwYzA2MjQyYjcyNjgzOWZkZDFlYmE5NDQ0NWQ2MWFlZDYzMzZjMTExZWZkODQ4ZDgyM2RhOGFmNjUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk5ZDQ5YmNiNDkxMGM2Y2NlZDU2Nzc5MTNkYzFlMjgyODVmMDBhY2MyZmVkMDUyNjMyNGYzYWU2M2Y2Y2VkNTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5aacc85087bb4da3990b5dad0d3d4585",
+      "statement": "Provider keys containing / are rejected, load_config strips only full-line // comments before strict JSON parsing, and model entries support upstream_name remap with permissive capability defaults.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/config.py#L111-L133",
+          "version": "repo-lines-v1:sha256:bb9d6af2105680959d0f81005974c0f8ba23c88838d2d1482d48c72694005d4a:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlZjFjZGQwZjU3NDMzY2U1MDc3OTA3MjJlMmY1MWQ5NzM1NmNiZmZhN2IyNGRkN2NhMTM0NDgzMmQ0ZTUyNDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU0MWMyZDg2NGZjYzM4MDY4ZjQyMDk0MDI0OTAzOGIxY2YyZmU1MzQ3NzJmYTFjZjBlMTA4MTVkY2FiODM2MWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQyYzQ5MDZmN2VlMGVkMjhjYzNhNjcxYTQ0MjgyZTUwNTRjOTAwN2UyYTA4ZGRkNjJlNzE2MjA1ZWE0MDcyYzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/config.py#L27-L35",
+          "version": "repo-lines-v1:sha256:2014e0834e1d7c081ca2da00ec9929741854e9d846118144e0eeb7100357a37d:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjc2M2UyMzAzOWU3ZGNlMmJiZDI5NjJlODJlZTgyNGFiZWEzMjYzMDk0YzExYzA2MGNhZDRjMTE4MTJmODllNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjU5Yzc1OTFmZGYyNmNkOWRkNTU5NzQ3ODIzZWVkMjRhMDEwYjBkOTM0NTVmMWI3N2U3Y2FkYjllMWQyNjI2OCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTQyMjI1YTg2N2NjODc5YzU5YWFjM2NmY2FlZDRkZjQ0YTU5MDE2NjFlZTMxZjIxYmNmYTA0MzNjYTU3ODFlOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzVhNzkzZWY4OTJmMTQ4MDg3MGUwZGU4ODA2M2JkZDM4OGQ4MGEzZWQ0MzNkMzQ5OThlZjBiODUzMTQyMDgyZSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_d1511e2daf1f43a3a54af0356d7e6e6c",
+      "statement": "Config path resolves as --config flag first, then ROSETTA_CONFIG env var, then ~/.rosetta-llm/config.json, with --host/--port applied as post-validation overrides.",
+      "evidence": [
+        {
+          "resource": "repo://src/rosetta/__main__.py#L23-L61",
+          "version": "repo-lines-v1:sha256:6021cb67c32109e4d82ba5171e7ec17de9967087800665cd974f2abfd7afe6bd:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiZTQzOWE0NzUwMzQyN2E0Yzc5ZjliZDNjM2MzZmMxZjkzZmQxZTdiNGM3YTE1MWQ1YWZhZDA0MDJkMWE4ZWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzMTFhYjBlNWZlMTJlYjYwOWEzYjdkYzBlNDA0MjFmODFlNDc4ZDA3NjVmNmMwOTg2ZDZiZmE4ZmY5MmY0OWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyNDhjOGUyNmRkOTdkNjAwNDZlNzI0N2M1ZjdhOTJiYjMxYTUxMDdiZGZlZGQwN2MxODhiZDg5NTMzYzBkNzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIwYjFlZjQ2MjczNDI0NmEzMzU2YzE4YmJlMDM4YTY2NDcxMzZhZGFlYmFlNmJkMmU4M2RkMzU0MTI2NTg1OTUifQ"
+        },
+        {
+          "resource": "repo://src/rosetta/asgi.py#L15-L18",
+          "version": "repo-lines-v1:sha256:995445843c4adfd6103fbd3197e15331d96cad8aa2b8b0419e5a2e8dbe840f73:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGU1NzBiNWI1NzQxNDRhYzVlZTg5N2YyNzZiNDdhMmNmMjIyMTJlZWVhYjMwZjAzYzU3Yzk5OGY5MThhNWU4ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDJmODk1NGM0MWNlMmMxNmFiZmY4YTJhNTliNGVhOGRmNGEyYWNlMzVmZDgxMDBjMjhmOTJmM2UzM2Q5OWYyYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiODg0NWQyYjAwMTljMTAyY2YxMDU5NjMyNjc4YTQ5YWY1OGMyMDg2NTkyYjgwOTFkNzMxYTA1ZDc0YzlmNTQ4MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.5.0",
+    "at": "2026-09-04T02:30:17.829Z"
+  }
+}

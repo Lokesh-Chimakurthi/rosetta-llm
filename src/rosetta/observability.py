@@ -62,7 +62,14 @@ async def _buffer_body(receive: Receive) -> tuple[bytes, Receive]:
     """Drain the request body, then return it plus a receive() that replays it.
 
     Buffering the full body keeps streaming intact: the wrapped receive replays
-    the captured chunks so downstream handlers read the same bytes.
+    the captured chunks so downstream handlers read the same bytes. Once the
+    replay is exhausted, calls forward to the original receive — per ASGI, the
+    only message left there is a real http.disconnect. Forwarding (rather than
+    fabricating a synchronous disconnect) preserves `Request.is_disconnected()`
+    semantics: starlette probes with a pre-cancelled scope, so a genuine
+    blocking await reads as "still connected" while a real disconnect still
+    arrives. Fabricating one made every streaming response die on its first
+    chunk under debug logging.
     """
     chunks: list[bytes] = []
     more = True
@@ -76,7 +83,9 @@ async def _buffer_body(receive: Receive) -> tuple[bytes, Receive]:
             async def _replay_other(
                 replayed: list[dict[str, Any]] = replayed,
             ) -> dict[str, Any]:
-                return replayed.pop(0) if replayed else {"type": "http.disconnect"}
+                if replayed:
+                    return replayed.pop(0)
+                return await receive()
 
             return body, _replay_other
         chunks.append(message.get("body", b""))
@@ -90,7 +99,9 @@ async def _buffer_body(receive: Receive) -> tuple[bytes, Receive]:
         if not sent:
             sent = True
             return {"type": "http.request", "body": body, "more_body": False}
-        return {"type": "http.disconnect"}
+        # Body fully replayed; the only remaining message on the original
+        # channel is a real http.disconnect — forward to it, don't invent one.
+        return await receive()
 
     return body, _replay
 

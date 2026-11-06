@@ -22,10 +22,12 @@ from rosetta.ir.request import (
     ReasoningPart,
     RefusalPart,
     SamplingConfig,
+    ServerToolUsePart,
     TextPart,
     Tool,
     ToolCallPart,
     ToolResultPart,
+    ToolSearchResultPart,
 )
 from rosetta.ir.response import CanonicalResponse, StopInfo, Usage
 
@@ -79,6 +81,125 @@ def _parse_reasoning_item(item: dict[str, Any]) -> Message:
         ),
         item,
     )
+
+
+def _parse_tool_definition(t: dict[str, Any]) -> Tool:
+    ttype = t.get("type", "function")
+    kind: Literal["function", "hosted", "search"]
+    if ttype == "function":
+        kind = "function"
+    elif ttype == "tool_search":
+        kind = "search"
+    else:
+        kind = "hosted"
+    return with_raw(
+        Tool(
+            name=t.get("name", "") or ttype,
+            description=t.get("description", ""),
+            input_schema=t.get("parameters", {}) or {},
+            kind=kind,
+            strict=bool(t.get("strict", False)),
+            deferred=bool(t.get("defer_loading", False)),
+        ),
+        t,
+    )
+
+
+def _render_tool_definition(t: Tool) -> dict[str, Any]:
+    if t.kind == "search":
+        execution = "server"
+        raw = t._raw if isinstance(t._raw, dict) else {}
+        if raw.get("execution") in ("server", "client"):
+            execution = raw["execution"]
+        return {"type": "tool_search", "execution": execution}
+    raw = t._raw if isinstance(t._raw, dict) else {}
+    entry_type = (raw.get("type") or "function") if t.kind == "hosted" else "function"
+    entry: dict[str, Any] = {
+        "type": entry_type,
+        "name": t.name,
+        "description": t.description,
+        "parameters": t.input_schema or {"type": "object", "properties": {}},
+        "strict": t.strict,
+    }
+    if t.kind == "function" and t.deferred:
+        entry["defer_loading"] = True
+    return entry
+
+
+def _parse_tool_search_item(
+    item: dict[str, Any], pending_call_id: str | None
+) -> tuple[Message, str]:
+    """Parse a tool_search_call / tool_search_output item into a message part.
+
+    Server-executed search items carry `call_id: null`; the proxy synthesizes
+    the anthropic-side `srvtoolu_` id and pairs the output item to the call
+    item through it. Client-executed search has no anthropic equivalent and
+    is refused here, at the boundary, before any rendering.
+    """
+    execution = item.get("execution")
+    if execution == "client":
+        raise ValueError(
+            "client-executed tool search has no anthropic equivalent; refusing to translate"
+        )
+    if execution is None:
+        raise ValueError("tool search item without execution cannot be translated")
+    if item.get("type") == "tool_search_call":
+        call_id = item.get("call_id") or f"srvtoolu_{uuid.uuid4().hex[:16]}"
+        # Anthropic carries the search variant in the block name; Responses
+        # has no variant field, so the proxy honors `search_variant` from
+        # peer proxies and never emits it.
+        name = (
+            "tool_search_tool_bm25"
+            if item.get("search_variant") == "bm25"
+            else "tool_search_tool_regex"
+        )
+        return (
+            with_raw(
+                Message(
+                    role="assistant",
+                    parts=[
+                        with_raw(
+                            ServerToolUsePart(
+                                call_id=call_id,
+                                name=name,
+                                input=item.get("arguments") or {},
+                            ),
+                            item,
+                        )
+                    ],
+                ),
+                item,
+            ),
+            call_id,
+        )
+    result_call_id: str | None = item.get("call_id") or pending_call_id
+    if not result_call_id:
+        raise ValueError(
+            "tool_search_output without a preceding tool_search_call cannot be translated"
+        )
+    tools = [_parse_tool_definition(t) for t in item.get("tools") or [] if isinstance(t, dict)]
+    return (
+        with_raw(
+            Message(
+                role="assistant",
+                parts=[with_raw(ToolSearchResultPart(call_id=result_call_id, tools=tools), item)],
+            ),
+            item,
+        ),
+        result_call_id,
+    )
+
+
+def _pair_search_result(
+    messages: list[Message], last_call: Message | None, msg: Message, call_id: str
+) -> None:
+    """Append a tool_search_output part to its preceding tool_search_call message."""
+    if last_call is not None:
+        call_part = last_call.parts[0]
+        if isinstance(call_part, ServerToolUsePart) and call_part.call_id == call_id:
+            last_call.parts.append(msg.parts[0])
+            return
+    messages.append(msg)
 
 
 def _parse_input_item(item: dict[str, Any]) -> Message | None:
@@ -209,31 +330,30 @@ def _parse_input_item(item: dict[str, Any]) -> Message | None:
 
 def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
     messages = []
+    pending_search_id = ""
+    last_search_msg: Message | None = None
     for item in payload.get("input", []) or []:
         if not isinstance(item, dict):
             continue
-        msg = _parse_input_item(item)
-        if msg is not None:
+        item_type = item.get("type", "")
+        if item_type == "tool_search_call":
+            msg, call_id = _parse_tool_search_item(item, None)
             messages.append(msg)
-
-    tools: list[Tool] = []
-    for t in payload.get("tools") or []:
-        if not isinstance(t, dict):
+            pending_search_id = call_id
+            last_search_msg = msg
             continue
-        ttype = t.get("type", "function")
-        kind: Literal["function", "hosted"] = "function" if ttype == "function" else "hosted"
-        tools.append(
-            with_raw(
-                Tool(
-                    name=t.get("name", "") or ttype,
-                    description=t.get("description", ""),
-                    input_schema=t.get("parameters", {}) or {},
-                    kind=kind,
-                    strict=bool(t.get("strict", False)),
-                ),
-                t,
-            )
-        )
+        if item_type == "tool_search_output":
+            msg, call_id = _parse_tool_search_item(item, pending_search_id or None)
+            pending_search_id = ""
+            _pair_search_result(messages, last_search_msg, msg, call_id)
+            last_search_msg = None
+            continue
+        parsed = _parse_input_item(item)
+        if parsed is not None:
+            messages.append(parsed)
+            last_search_msg = None
+
+    tools = [_parse_tool_definition(t) for t in payload.get("tools") or [] if isinstance(t, dict)]
 
     reasoning = ReasoningConfig()
     reasoning_data = payload.get("reasoning")
@@ -315,6 +435,24 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
                         "output": output_text,
                     }
                 )
+            elif isinstance(part, ServerToolUsePart):
+                if message_content:
+                    body["input"].append(_message_item(msg.role, message_content))
+                    message_content = []
+                body["input"].append(_search_call_item(part))
+            elif isinstance(part, ToolSearchResultPart):
+                if message_content:
+                    body["input"].append(_message_item(msg.role, message_content))
+                    message_content = []
+                body["input"].append(
+                    {
+                        "type": "tool_search_output",
+                        "execution": "server",
+                        "call_id": None,
+                        "status": "completed",
+                        "tools": [_render_tool_definition(t) for t in part.tools],
+                    }
+                )
             elif isinstance(part, ReasoningPart):
                 if message_content:
                     body["input"].append(_message_item(msg.role, message_content))
@@ -362,22 +500,11 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
             body["input"].append(_message_item(msg.role, message_content))
 
     if ir.tools:
-        body["tools"] = [
-            {
-                "type": (
-                    "function"
-                    if t.kind == "function"
-                    else (t._raw.get("type") or "function")
-                    if isinstance(t._raw, dict)
-                    else "function"
-                ),
-                "name": t.name,
-                "description": t.description,
-                "parameters": t.input_schema or {"type": "object", "properties": {}},
-                "strict": t.strict,
-            }
-            for t in ir.tools
-        ]
+        body["tools"] = [_render_tool_definition(t) for t in ir.tools]
+        # Synthesized search entries default to regex; a bm25 preference cannot
+        # be known when the client deferred tools without naming a search tool.
+        if any(t.deferred for t in ir.tools) and not any(t.kind == "search" for t in ir.tools):
+            body["tools"].append({"type": "tool_search", "execution": "server"})
         body["tool_choice"] = _render_tool_choice(ir.tool_choice)
 
     if ir.max_output_tokens:
@@ -411,6 +538,20 @@ def _message_item(role: str, content: list[dict[str, Any]]) -> dict[str, Any]:
     return {"type": "message", "role": role, "content": content}
 
 
+def _search_call_item(part: ServerToolUsePart) -> dict[str, Any]:
+    # Responses has no variant field: the wire stays spec-clean and bm25
+    # degrades to regex across any responses hop. The variant lives in IR only
+    # (part.name); the parse side still honors `search_variant` when a peer
+    # proxy emits it.
+    return {
+        "type": "tool_search_call",
+        "execution": "server",
+        "call_id": None,
+        "status": "completed",
+        "arguments": part.input,
+    }
+
+
 def _render_tool_choice(tool_choice: Any) -> Any:
     if isinstance(tool_choice, dict):
         if tool_choice.get("type") == "function" and "function" in tool_choice:
@@ -430,10 +571,27 @@ def _render_tool_choice(tool_choice: Any) -> Any:
 
 def parse_response(payload: dict[str, Any]) -> CanonicalResponse:
     output_messages: list[Message] = []
+    pending_search_id = ""
+    last_search_msg: Message | None = None
     for item in payload.get("output", []) or []:
         if not isinstance(item, dict):
             continue
         item_type = item.get("type", "")
+
+        if item_type == "tool_search_call":
+            msg, call_id = _parse_tool_search_item(item, None)
+            output_messages.append(msg)
+            pending_search_id = call_id
+            last_search_msg = msg
+            continue
+        if item_type == "tool_search_output":
+            msg, call_id = _parse_tool_search_item(item, pending_search_id or None)
+            pending_search_id = ""
+            _pair_search_result(output_messages, last_search_msg, msg, call_id)
+            last_search_msg = None
+            continue
+
+        last_search_msg = None
 
         if item_type == "message":
             parts: list[ContentPart] = []
@@ -549,6 +707,18 @@ def render_response(ir: CanonicalResponse) -> dict[str, Any]:
                         "name": part.name,
                         "arguments": part.arguments_json_text or "{}",
                         "status": "completed",
+                    }
+                )
+            elif isinstance(part, ServerToolUsePart):
+                output.append(_search_call_item(part))
+            elif isinstance(part, ToolSearchResultPart):
+                output.append(
+                    {
+                        "type": "tool_search_output",
+                        "execution": "server",
+                        "call_id": None,
+                        "status": "completed",
+                        "tools": [_render_tool_definition(t) for t in part.tools],
                     }
                 )
             elif isinstance(part, ReasoningPart):

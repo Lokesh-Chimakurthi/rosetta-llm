@@ -137,6 +137,8 @@ The proxy automatically translates between formats:
 | `/v1/responses` | anthropic | translate via IR |
 | `/v1/responses` | openai_chat | translate via IR |
 
+Captured translation-fidelity audits and comparisons live under `docs/research/`.
+
 ## Usage Examples
 
 ### Anthropic client -> OpenAI-backed model

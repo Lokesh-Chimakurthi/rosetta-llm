@@ -75,12 +75,11 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Input items**: message, function_call, function_call_output, reasoning, compaction, item_reference.
 - **Output items**: message, function_call, reasoning, compaction.
 - **Reasoning**: `encrypted_content` + `id` round-trip via Anthropic signature. `summary` accepts concise/detailed/auto.
-- **Phase markers** (commentary/final_answer): preserved in `_raw`, emitted only when the source item had them.
-- **Tool search**: `tool_search_call` / `tool_search_output` items map to/from the anthropic search blocks, paired through a synthesized `srvtoolu_` id when `call_id` is null (server execution). Client/BYOT execution has no anthropic equivalent and is refused with a translation error (search items at parse, `tools[]` entries at anthropic render), never silently converted. The search variant (regex/bm25) lives in IR only, on the server-tool block name; Responses has no variant field of its own, so the wire stays spec-clean and bm25 degrades to regex across any responses hop (the parse side still honors `search_variant` from peer proxies). `defer_loading` on functions round-trips via the IR `deferred` flag; a `{"type":"tool_search","execution":"server"}` entry is synthesized when any tool is deferred and none is present (regex variant by default). `arguments` is a JSON object on this wire; a JSON string is rejected by validation (loud 400).
+- **Tool search**: `tool_search_call` / `tool_search_output` items map to/from the anthropic search blocks, paired through a synthesized `srvtoolu_` id when `call_id` is null (server execution). Client/BYOT execution has no anthropic equivalent and is refused with a translation error (search items at parse, `tools[]` entries at anthropic render), never silently converted. The search variant (regex/bm25) lives in IR only, on the server-tool block name; Responses has no variant field of its own, so the wire stays spec-clean and bm25 degrades to regex across any responses hop (the parse side still honors `search_variant` from peer proxies). `defer_loading` on functions round-trips via the IR `deferred` flag; a `{"type":"tool_search","execution":"server"}` entry is synthesized when any tool is deferred and none is present (regex variant by default). tool-search `arguments` is a JSON object on this wire; a JSON string is rejected by validation (loud 400).
 
 ### Pipeline
 - **Header forwarding**: `anthropic-beta`, `anthropic-version`, `x-claude-code-session-id` extracted from inbound request and forwarded to every upstream call.
-- **Model resolution**: `<provider_key>/<model_name>` split on first `/`. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved.
+- **Model resolution**: `<provider_key>/<model_name>` split on first `/`. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved. A bare model id (no `/`) routes via `default_provider` when set; an empty id is never routed.
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
 - **Cancellation**: starlette cancels the streaming generator on client disconnect (ASGI < 2.4 task-group branch), closing the upstream `httpx.stream` context.
 
@@ -88,13 +87,14 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Ping injection**: when outbound format is anthropic, `wrap_with_ping()` emits a `ping` event if 15s pass without an upstream event. Uses a producer-task + queue pattern so the source generator is never cancelled mid-await.
 - **Chat stream**: text blocks emit `PartStartEvent(index=0, part_type="text")` before deltas. `reasoning_content` opens a reasoning block with PartStart. Tool calls get unique indices offset from the text block.
 - **Responses stream**: whitespace runaway guard — if >20 consecutive whitespace chars in tool-call argument deltas, emits an error event.
-- **`[DONE]`**: Chat and Responses stream renderers are defensive — they emit a terminal `[DONE]` even if `MessageStopEvent` was never received.
+- **`[DONE]`**: the Chat stream renderer is defensive — it emits a terminal `[DONE]` even if `MessageStopEvent` was never received.
+- **Usage**: Chat stream requests set `stream_options.include_usage`; the Anthropic stream renderer emits usage on a single terminal `message_delta`, cache fields included.
 
 ### Models endpoint
 - Static models: listed in config, emitted immediately.
 - `["*"]` auto-discover: queries upstream `/models` first, falls back to `/v1/models`. Results cached with per-provider `models_ttl_seconds`.
 - `display_name` from upstream is preserved when present.
-- Per-provider `asyncio.Lock` prevents concurrent fan-out on cache miss.
+- A single `asyncio.Lock` (`app.state.model_refresh_lock`) serializes auto-discovery refreshes across providers, preventing concurrent fan-out on cache miss.
 - **Claude Code**: detected via `x-claude-code-session-id` header. Returns models with `claude-code/` prefix for non-Anthropic models so they appear in the picker.
 
 ## Config.json shape
@@ -105,6 +105,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
   "port": 7860,
   "proxy": {"api_keys": []},
   "log_level": "info",
+  "default_provider": null,
   "providers": {
     "<key>": {
       "format": "openai_chat | openai_responses | anthropic",

@@ -119,12 +119,18 @@ class Config(BaseModel):
     log_headers: bool = False
     log_bodies: bool = False
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
+    # Provider for bare model names; must be a key under `providers`.
+    default_provider: str | None = None
 
     @model_validator(mode="after")
     def validate_providers(self) -> Config:
         for key in self.providers:
             if "/" in key:
                 raise ValueError(f"Provider key '{key}' must not contain '/'")
+        if self.default_provider is not None and self.default_provider not in self.providers:
+            raise ValueError(
+                f"default_provider '{self.default_provider}' is not declared in providers"
+            )
         return self
 
 

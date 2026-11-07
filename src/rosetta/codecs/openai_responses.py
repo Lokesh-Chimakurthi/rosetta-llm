@@ -46,13 +46,14 @@ _REQUEST_TOP_LEVEL_KEYS = frozenset(
         "include",
         "metadata",
         "user",
-        "store",
-        "previous_response_id",
-        "parallel_tool_calls",
-        "service_tier",
-        "prompt_cache_key",
     }
 )
+
+# Point at conversation state an OpenAI Responses server stores; no other
+# format can read it, and translating without it silently loses the
+# conversation. parse_request only runs when translating: a request to an
+# openai_responses provider passes through without being parsed.
+_SERVER_STATE_KEYS = ("previous_response_id", "conversation")
 
 
 def _parse_reasoning_item(item: dict[str, Any]) -> Message:
@@ -209,13 +210,26 @@ def _parse_input_item(item: dict[str, Any]) -> Message | None:
 
 
 def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
-    messages = []
-    for item in payload.get("input", []) or []:
-        if not isinstance(item, dict):
-            continue
-        msg = _parse_input_item(item)
-        if msg is not None:
-            messages.append(msg)
+    for key in _SERVER_STATE_KEYS:
+        if payload.get(key) is not None:
+            raise ValueError(
+                f"'{key}' refers to conversation state stored by an OpenAI Responses server, "
+                "which this model's provider cannot read; send the full conversation in "
+                "'input' instead, or use a model whose provider format is openai_responses"
+            )
+    messages: list[Message] = []
+    raw_input = payload.get("input")
+    if isinstance(raw_input, str):
+        # The API reads a string input as a single user message.
+        if raw_input:
+            messages.append(Message(role="user", parts=[TextPart(text=raw_input)]))
+    else:
+        for item in raw_input or []:
+            if not isinstance(item, dict):
+                continue
+            msg = _parse_input_item(item)
+            if msg is not None:
+                messages.append(msg)
 
     tools: list[Tool] = []
     for t in payload.get("tools") or []:

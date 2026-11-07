@@ -80,6 +80,8 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Output items**: message, function_call, reasoning, compaction.
 - **Reasoning**: `encrypted_content` + `id` round-trip via Anthropic signature. `summary` accepts concise/detailed/auto.
 - **Phase markers** (commentary/final_answer): preserved in `_raw`, emitted only when the source item had them.
+- **String input**: a string `input` is one user message.
+- **Server-side state**: a non-null `previous_response_id` or `conversation` refers to state stored on an OpenAI Responses server. Translating it raises a 400 with the remedy instead of answering without the history; same-format requests pass through unparsed.
 
 ### Pipeline
 - **Header forwarding**: `anthropic-beta`, `anthropic-version`, `x-claude-code-session-id` extracted from inbound request and forwarded to every upstream call.

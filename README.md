@@ -215,6 +215,8 @@ The proxy automatically translates between formats:
 | `/v1/responses` | anthropic | translate via IR |
 | `/v1/responses` | openai_chat | translate via IR |
 
+A translated `/v1/responses` request must carry the whole conversation in `input`. `previous_response_id` and `conversation` point at history that only an OpenAI Responses server stores, so Rosetta answers them with a `400` instead of replying without that history.
+
 ## Usage Examples
 
 ### Anthropic client -> OpenAI-backed model

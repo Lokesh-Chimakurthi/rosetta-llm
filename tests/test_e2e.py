@@ -467,3 +467,15 @@ def test_translated_anthropic_stream_is_valid_for_every_upstream_fixture(
         -1
     ]
     assert final_delta["delta"]["stop_reason"] == stop_reason
+
+
+def test_responses_server_state_to_other_format_is_a_400_with_the_remedy(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    r = client.post(
+        "/v1/responses",
+        json={"model": "abc/m1", "input": "and then?", "previous_response_id": "resp_1"},
+    )
+    assert r.status_code == 400
+    assert "full conversation in 'input'" in r.json()["error"]["message"]
+    assert fake.requests == []

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from rosetta.codecs import anthropic as ac
 from rosetta.codecs import openai_chat as oc
 from rosetta.codecs import openai_responses as orc
@@ -229,6 +231,35 @@ def test_responses_only_fields_never_reach_chat() -> None:
     assert chat["safety_identifier"] == "user-1"
     assert "text" not in chat
     assert "truncation" not in chat
+
+
+def test_shared_responses_fields_reach_chat_and_not_anthropic() -> None:
+    shared = {
+        "parallel_tool_calls": False,
+        "store": False,
+        "service_tier": "flex",
+        "prompt_cache_key": "k",
+    }
+    ir = orc.parse_request({"model": "x", "input": "hi", **shared})
+    assert oc.render_request(ir).items() >= shared.items()
+    assert not shared.keys() & ac.render_request(ir).keys()
+
+
+@pytest.mark.parametrize("key", ["previous_response_id", "conversation"])
+def test_responses_server_state_cannot_be_translated(key: str) -> None:
+    """Dropping it would answer without the conversation; refuse with the remedy instead."""
+    with pytest.raises(ValueError, match=f"'{key}'.*full conversation in 'input'"):
+        orc.parse_request({"model": "x", "input": "hi", key: "resp_123"})
+
+
+def test_responses_null_server_state_is_ignored() -> None:
+    ir = orc.parse_request({"model": "x", "input": "hi", "previous_response_id": None})
+    assert [m.role for m in ir.messages] == ["user"]
+
+
+def test_responses_string_input_is_one_user_message() -> None:
+    chat = oc.render_request(orc.parse_request({"model": "x", "input": "hello"}))
+    assert chat["messages"] == [{"role": "user", "content": "hello"}]
 
 
 def test_render_anthropic_max_tokens_synthesized() -> None:

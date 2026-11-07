@@ -179,6 +179,58 @@ def test_anthropic_unknown_param_passthrough_via_raw_extras() -> None:
     assert rendered.get("custom_unknown_field") == "preserve me"
 
 
+def test_untranslated_anthropic_fields_never_reach_another_format() -> None:
+    """Fields only Anthropic defines (auto mode review, context editing) stay Anthropic-only."""
+    extras = {
+        "safeguards": [{"type": "dangerous_tool_use", "classifier_context": {"v": 1}}],
+        "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
+        "service_tier": "standard_only",
+    }
+    ir = ac.parse_request(
+        {"model": "x", "max_tokens": 16, "messages": [{"role": "user", "content": "hi"}], **extras}
+    )
+    for rendered in (oc.render_request(ir), orc.render_request(ir)):
+        assert not extras.keys() & rendered.keys()
+    assert ac.render_request(ir).items() >= extras.items()
+
+
+def test_shared_openai_fields_cross_between_chat_and_responses_only() -> None:
+    """Chat and Responses define these fields identically; Anthropic defines none of them."""
+    ir = oc.parse_request(
+        {
+            "model": "x",
+            "messages": [{"role": "user", "content": "hi"}],
+            "parallel_tool_calls": False,
+            "store": False,
+            "n": 2,
+            "response_format": {"type": "json_object"},
+        }
+    )
+    responses = orc.render_request(ir)
+    assert (responses["parallel_tool_calls"], responses["store"]) == (False, False)
+    assert "n" not in responses
+    assert "response_format" not in responses
+    assert not {"parallel_tool_calls", "store", "n", "response_format"} & set(
+        ac.render_request(ir)
+    )
+
+
+def test_responses_only_fields_never_reach_chat() -> None:
+    ir = orc.parse_request(
+        {
+            "model": "x",
+            "input": "hi",
+            "text": {"verbosity": "low"},
+            "truncation": "auto",
+            "safety_identifier": "user-1",
+        }
+    )
+    chat = oc.render_request(ir)
+    assert chat["safety_identifier"] == "user-1"
+    assert "text" not in chat
+    assert "truncation" not in chat
+
+
 def test_render_anthropic_max_tokens_synthesized() -> None:
     """Anthropic requires max_tokens; synthesize a default when absent."""
     chat = {"model": "x", "messages": [{"role": "user", "content": "hi"}]}

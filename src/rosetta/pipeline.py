@@ -26,7 +26,8 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from rosetta.codecs import anthropic as ac_codec
 from rosetta.codecs import openai_chat as oc_codec
 from rosetta.codecs import openai_responses as or_codec
-from rosetta.config import Config, ProviderConfig
+from rosetta.codecs.extras import extras_for
+from rosetta.config import Config, Format, ProviderConfig
 from rosetta.errors import format_error, format_stream_error
 from rosetta.ir.events import MessageDeltaEvent
 from rosetta.ir.request import CanonicalRequest
@@ -285,7 +286,7 @@ async def _passthrough_stream_with_recovery(
 
 async def _translate(
     inbound_format: str,
-    provider_format: str,
+    provider_format: Format,
     payload: dict[str, Any],
     provider_key: str,
     upstream_path: str,
@@ -304,6 +305,9 @@ async def _translate(
             content=format_error(inbound_format, 400, "translation_error", str(e)),
             status_code=400,
         )
+    dropped = sorted(ir.raw_extras.keys() - extras_for(ir, provider_format).keys())
+    if dropped:
+        request_log().dropped_fields = dropped
 
     if is_stream:
         return StreamingResponse(

@@ -11,6 +11,7 @@ from typing import Any
 
 import orjson
 
+from rosetta.codecs.extras import extras_for
 from rosetta.ir.helpers import with_raw
 from rosetta.ir.request import (
     CanonicalRequest,
@@ -301,6 +302,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         stream=bool(payload.get("stream", False)),
         metadata=payload.get("metadata") or {},
         raw_extras=raw_extras,
+        raw_extras_format="anthropic",
     )
 
 
@@ -398,7 +400,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
     if ir.stream:
         body["stream"] = True
 
-    for k, v in ir.raw_extras.items():
+    for k, v in extras_for(ir, "anthropic").items():
         body.setdefault(k, v)
 
     return body

@@ -6,6 +6,7 @@ import time
 import uuid
 from typing import Any
 
+from rosetta.codecs.extras import extras_for
 from rosetta.ir.helpers import with_raw
 from rosetta.ir.request import (
     CanonicalRequest,
@@ -199,6 +200,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         stream=bool(payload.get("stream", False)),
         metadata={"user": payload["user"]} if isinstance(payload.get("user"), str) else {},
         raw_extras=raw_extras,
+        raw_extras_format="openai_chat",
     )
 
 
@@ -319,7 +321,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
     if isinstance(ir.metadata.get("user"), str):
         body["user"] = ir.metadata["user"]
 
-    for k, v in ir.raw_extras.items():
+    for k, v in extras_for(ir, "openai_chat").items():
         body.setdefault(k, v)
 
     # Ask the upstream for a final usage-only chunk on streaming — OpenAI Chat

@@ -59,6 +59,7 @@ _COMPLETED_DEBUG_FIELDS = (
     "upstream_stop_reason",
     "upstream_status",
     "session_id",
+    "dropped_fields",
 )
 
 
@@ -136,6 +137,7 @@ class RequestLog:
     cache_creation_tokens: int | None = None
     reasoning_tokens: int | None = None
     session_id: str | None = None
+    dropped_fields: list[str] | None = None
     inbound_headers: Mapping[str, str] | None = None
     body_tap: _BodyTap | None = None
     started_logged: bool = False

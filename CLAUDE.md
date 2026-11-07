@@ -83,6 +83,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 
 ### Pipeline
 - **Header forwarding**: `anthropic-beta`, `anthropic-version`, `x-claude-code-session-id` extracted from inbound request and forwarded to every upstream call.
+- **Untranslated fields**: top-level request fields a codec doesn't translate land in `raw_extras`, tagged with `raw_extras_format`. `codecs/extras.py::extras_for` is the one rule for what a renderer forwards: everything to the same format, only `_SHARED_FIELDS` (same name and meaning) between Chat and Responses, nothing between Anthropic and either OpenAI format. Strict upstreams reject unknown fields. The pipeline logs dropped names (never values) as `dropped_fields` at debug.
 - **Model resolution**: `<provider_key>/<model_name>` split on first `/`. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved.
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
 - **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the `UpstreamClient.stream` context and its connection.
@@ -143,7 +144,7 @@ Model id format: `<provider_key>/<model_name>` (e.g., `anthropic/claude-opus-4-7
 
 ## Tests
 
-- `tests/codecs/test_roundtrip.py` — codec property tests: Anthropic round-trip, tool-use input as object, tool-result ordering, Chat→Anthropic tool-call ID preservation, reasoning lossless round-trip (encrypted_content+id via signature), response round-trip, unknown-param passthrough, max_tokens synthesis, streaming partial-JSON buffering.
+- `tests/codecs/test_roundtrip.py` — codec property tests: Anthropic round-trip, tool-use input as object, tool-result ordering, Chat→Anthropic tool-call ID preservation, reasoning lossless round-trip (encrypted_content+id via signature), response round-trip, unknown-param passthrough within a format and its absence across formats (shared Chat↔Responses fields excepted), max_tokens synthesis, streaming partial-JSON buffering.
 - `tests/support/upstream.py` — `FakeUpstream` (an httpx2 transport routing by provider key and path, recording every request; `add_json`, `add_sse` with fixture name or bytes plus `chunk_size`/`delay_s`, `add_error`, `streams_opened`/`streams_closed`), `build_client(config, fake)` and `load_fixture(fmt, name)`. Tests never patch the network.
 - `tests/support/contracts.py` — SDK-schema plus lifecycle validators for every wire format (`validate_anthropic_message/stream`, `validate_chat_completion/stream`, `validate_response/responses_stream`); each failure starts with `[<rule>]`.
 - `tests/fixtures/sse/<format>/` — upstream SSE fixtures (text, tool_call, reasoning, error_midstream), each opening with a comment naming the documentation it follows.

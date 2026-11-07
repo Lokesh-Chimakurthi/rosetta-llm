@@ -262,7 +262,7 @@ With `log_completed`, each request also logs `request_completed` — at `info` f
 
 ### Debug
 
-Adds `upstream_request` and `upstream_response`; with `log_completed`, `request_completed` also carries `cache_read_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `upstream_stop_reason`, `upstream_status` and `session_id` (from `x-claude-code-session-id`).
+Adds `upstream_request` and `upstream_response`; with `log_completed`, `request_completed` also carries `cache_read_tokens`, `cache_creation_tokens`, `reasoning_tokens`, `upstream_stop_reason`, `upstream_status`, `session_id` (from `x-claude-code-session-id`) and `dropped_fields`. `dropped_fields` lists, by name only, the request fields translation dropped because the target format doesn't define them. Between Chat and Responses, Rosetta forwards only the fields both define the same way: `parallel_tool_calls`, `prompt_cache_key`, `prompt_cache_options`, `prompt_cache_retention`, `safety_identifier`, `service_tier` and `store`. It forwards none between Anthropic and either OpenAI format.
 
 ```json
 {"ts":"2026-09-30T13:31:17.664Z","level":"debug","event":"upstream_request","request_id":"b4f81a35294d4639","provider":"octo","path":"/v1/chat/completions","upstream_model":"deepseek-v4.1-flash","stream":true,"body_bytes":48211}

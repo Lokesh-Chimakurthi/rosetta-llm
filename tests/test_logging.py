@@ -323,3 +323,23 @@ def test_debug_completion_adds_detail_fields(capsys: pytest.CaptureFixture[str])
         "upstream_stop_reason",
     } <= set(completed)
     assert (completed["upstream_status"], completed["session_id"]) == (200, "sess-1")
+
+
+def test_debug_completion_names_fields_dropped_by_translation(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    method, path, kwargs = _MESSAGES_STREAM
+    extras = {
+        "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
+        "safeguards": [{"secret": "sk-in-body"}],
+    }
+    _, mine, _ = _run(
+        "debug",
+        capsys,
+        _fake("stream"),
+        (method, path, {"json": {**kwargs["json"], **extras}}),
+        log_completed=True,
+    )
+    completed = mine[-1]
+    assert completed["dropped_fields"] == ["context_management", "safeguards"]
+    assert "sk-in-body" not in json.dumps(mine)

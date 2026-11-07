@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
+from rosetta.config import Format
+
 
 class _IRBase(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -115,6 +117,8 @@ class CanonicalRequest(BaseModel):
     stream: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict)
     raw_extras: dict[str, Any] = Field(default_factory=dict)
+    # The format whose request carried raw_extras; see codecs.extras.extras_for.
+    raw_extras_format: Format | None = None
 
 
 # Resolve forward references for recursive ToolResultPart.content_parts.

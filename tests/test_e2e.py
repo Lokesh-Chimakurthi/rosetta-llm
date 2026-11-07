@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.support.contracts import parse_sse, validate_anthropic_stream
-from tests.support.upstream import FakeUpstream, build_client
+from tests.support.upstream import FakeUpstream, build_client, load_fixture
 
 _CONFIG: dict[str, Any] = {
     "providers": {
@@ -300,6 +300,125 @@ def test_env_resolved_custom_header_reaches_upstream(
     sent_headers = fake.requests[-1].headers
     assert sent_headers["x-secret-header"] == "secret-from-env"
     assert sent_headers["x-literal-header"] == "literal-val"
+
+
+# Claude Code's auto mode review request, per
+# https://docs.litellm.ai/blog/claude-code-server-side-auto-mode.
+_REVIEW_BETA = "dangerous-tool-use-2026-09-03"
+_SAFEGUARDS: list[dict[str, Any]] = [
+    {"type": "dangerous_tool_use", "classifier_context": {"v": 1, "permission_mode": "auto"}}
+]
+_TOOL_USE_ID = "toolu_01V9Z5KXn3SU71Fzr5cquHLi"
+
+
+def _review_request(model: str, *, stream: bool = False) -> dict[str, Any]:
+    return {
+        "model": model,
+        "max_tokens": 64,
+        "stream": stream,
+        "safeguards": _SAFEGUARDS,
+        "messages": [{"role": "user", "content": "Run: echo hello"}],
+    }
+
+
+def test_auto_mode_review_passthrough_keeps_request_and_verdicts(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    """Anthropic passthrough: safeguards and its beta reach the upstream; verdicts reach the client."""
+    upstream_resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude",
+        "content": [
+            {"type": "tool_use", "id": _TOOL_USE_ID, "name": "Bash", "input": {"command": "ls"}}
+        ],
+        "stop_reason": "tool_use",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 5, "output_tokens": 5},
+        "safeguard_results": [
+            {
+                "type": "dangerous_tool_use",
+                "status": {
+                    "type": "available",
+                    "tool_uses": {_TOOL_USE_ID: {"type": "evaluated", "outcome": "not_flagged"}},
+                },
+            }
+        ],
+    }
+    fake.add_json("anth", "POST", "/messages", 200, upstream_resp)
+
+    r = client.post(
+        "/v1/messages",
+        json=_review_request("anth/claude"),
+        headers={"anthropic-beta": f"oauth-2025-04-20,{_REVIEW_BETA}"},
+    )
+
+    sent = fake.requests[-1]
+    assert sent.json()["safeguards"] == _SAFEGUARDS
+    assert sent.headers["anthropic-beta"] == f"oauth-2025-04-20,{_REVIEW_BETA}"
+    assert r.status_code == 200
+    assert r.json() == upstream_resp
+
+
+def test_auto_mode_review_passthrough_stream_relays_final_delta_verbatim(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    """The verdict rides on the last message_delta; passthrough must not drop or rewrite it."""
+    fake.add_sse("anth", "/messages", "tool_call_safeguards", chunk_size=97)
+    with client.stream(
+        "POST",
+        "/v1/messages",
+        json=_review_request("anth/claude", stream=True),
+        headers={"anthropic-beta": _REVIEW_BETA},
+    ) as r:
+        body = b"".join(r.iter_bytes())
+
+    assert fake.requests[-1].json()["safeguards"] == _SAFEGUARDS
+    assert body == load_fixture("anthropic", "tool_call_safeguards")
+    validate_anthropic_stream(body)
+    final_delta = [json.loads(ev.data) for ev in parse_sse(body) if ev.event == "message_delta"][
+        -1
+    ]
+    verdicts = final_delta["delta"]["safeguard_results"][0]["status"]["tool_uses"]
+    assert verdicts == {
+        "toolu_01T1x1fJ34qAmk2tNTrN7Up6": {"type": "evaluated", "outcome": "not_flagged"}
+    }
+
+
+def test_auto_mode_review_dropped_on_translation_so_claude_code_falls_back(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    """A non-Anthropic upstream cannot review: the field is withheld and no verdict is invented."""
+    fake.add_json("abc", "POST", "/chat/completions", 200, _CHAT_COMPLETION)
+
+    r = client.post(
+        "/v1/messages",
+        json=_review_request("claude-code/abc/m1"),
+        headers={"anthropic-beta": _REVIEW_BETA},
+    )
+
+    assert "safeguards" not in fake.requests[-1].json()
+    assert r.status_code == 200
+    assert "safeguard_results" not in r.json()
+
+
+def test_auto_mode_review_dropped_on_stream_translation_and_stream_completes(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    """Claude Code reads a completed stream without verdicts as "not reviewed" and falls back."""
+    fake.add_sse("abc", "/chat/completions", load_fixture("openai_chat", "tool_call"))
+    with client.stream(
+        "POST",
+        "/v1/messages",
+        json=_review_request("claude-code/abc/m1", stream=True),
+        headers={"anthropic-beta": _REVIEW_BETA},
+    ) as r:
+        body = b"".join(r.iter_bytes())
+
+    assert "safeguards" not in fake.requests[-1].json()
+    validate_anthropic_stream(body)
+    assert b"safeguard_results" not in body
 
 
 @pytest.mark.parametrize(

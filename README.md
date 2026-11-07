@@ -175,6 +175,30 @@ For example, if your config has an OpenAI provider with `gpt-5.4`, it appears in
 
 Rosetta forwards Claude Code's session headers (`anthropic-beta`, `anthropic-version`, `X-Claude-Code-Session-Id`) to every upstream call, preserving prompt caching and feature detection.
 
+### Auto mode classifier
+
+In [auto mode](https://code.claude.com/docs/en/permission-modes#server-side-classifier-review), Claude Code asks the server to review tool calls by sending a `safeguards` request field with a `dangerous-tool-use-*` `anthropic-beta` value. The verdicts come back as `safeguard_results`: at the top level of a non-streaming response, and in the `delta` of the final `message_delta` event when streaming. What Rosetta does depends on the provider the model routes to:
+
+| Provider format | What Rosetta does | Who reviews tool calls |
+| --- | --- | --- |
+| `anthropic` (passthrough) | Forwards `safeguards`, the beta value and `safeguard_results` byte for byte, and never rewrites tool-use ids | The Anthropic API, as part of the same request |
+| `openai_chat`, `openai_responses` (translated) | Drops `safeguards`, like every field only Anthropic defines, before rendering the upstream request, so the response carries no `safeguard_results` | Claude Code's own classifier requests, which also go through Rosetta |
+
+Translated providers can't review tool calls, so Rosetta sends no verdicts rather than invent any. Claude Code reads a completed response with no verdicts as "this server doesn't review" and switches to its own classifier requests. Rosetta has no classifier setting; you choose the classifier model in Claude Code's settings. Set `CLAUDE_CODE_AUTO_MODE_MODEL` (Claude Code v2.1.302 or later) to a Rosetta model id. Claude Code's default classifier model, `claude-sonnet-5`, has no `<provider>/` prefix, so Rosetta can't route it.
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:7860",
+    "CLAUDE_CODE_AUTO_MODE_MODEL": "openai/gpt-5.4"
+  }
+}
+```
+
+On older Claude Code versions, set `ANTHROPIC_DEFAULT_SONNET_MODEL` to a Rosetta model id instead. That also changes which model the Sonnet alias picks. Claude Code's own classifier requests leave out tool results, so text in a file or a web page can't steer the verdict. Each classifier request is billed by the provider that serves it.
+
+Some third-party providers speak the `anthropic` format but reject unknown request fields. If yours answers `safeguards` with a `400`, set `CLAUDE_CODE_AUTO_MODE_SERVER=0` in Claude Code to stop sending the field. A provider that ignores the field needs no change: Claude Code falls back on its own.
+
 ## Translation Matrix
 
 The proxy automatically translates between formats:

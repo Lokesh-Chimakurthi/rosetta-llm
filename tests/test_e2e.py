@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.support.contracts import parse_sse, validate_anthropic_stream
 from tests.support.upstream import FakeUpstream, build_client
 
 _CONFIG: dict[str, Any] = {
@@ -299,3 +300,51 @@ def test_env_resolved_custom_header_reaches_upstream(
     sent_headers = fake.requests[-1].headers
     assert sent_headers["x-secret-header"] == "secret-from-env"
     assert sent_headers["x-literal-header"] == "literal-val"
+
+
+@pytest.mark.parametrize(
+    ("fmt", "path", "fixture", "stop_reason"),
+    [
+        (fmt, path, name, stop)
+        for fmt, path in (("openai_chat", "/chat/completions"), ("openai_responses", "/responses"))
+        for name, stop in (
+            ("text", "end_turn"),
+            ("tool_call", "tool_use"),
+            ("reasoning", "end_turn"),
+        )
+    ],
+)
+def test_translated_anthropic_stream_is_valid_for_every_upstream_fixture(
+    fake: FakeUpstream, fmt: str, path: str, fixture: str, stop_reason: str
+) -> None:
+    """Dense block indices, one start and stop each, and the stop reason Claude Code acts on."""
+    config = {
+        "providers": {
+            "up": {
+                "format": fmt,
+                "base_url": "https://up.test/v1",
+                "api_key": "sk-up",
+                "models": [{"id": "m"}],
+            }
+        }
+    }
+    fake.add_sse("up", path, fixture)
+    with (
+        build_client(config, fake) as c,
+        c.stream(
+            "POST",
+            "/v1/messages",
+            json={
+                "model": "up/m",
+                "max_tokens": 64,
+                "stream": True,
+                "messages": [{"role": "user", "content": "hi"}],
+            },
+        ) as r,
+    ):
+        body = b"".join(r.iter_bytes())
+    validate_anthropic_stream(body)
+    final_delta = [json.loads(ev.data) for ev in parse_sse(body) if ev.event == "message_delta"][
+        -1
+    ]
+    assert final_delta["delta"]["stop_reason"] == stop_reason

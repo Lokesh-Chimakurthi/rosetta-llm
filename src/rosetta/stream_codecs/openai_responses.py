@@ -28,6 +28,10 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
     buffer = b""
     current_item_index = -1
     ws_counters: dict[int, int] = {}
+    # The Responses API ends its stream after response.completed/incomplete
+    # with no [DONE]; some compatible servers still send one afterwards.
+    terminated = False
+    saw_tool_call = False
 
     async for chunk in chunks:
         buffer += chunk
@@ -42,7 +46,9 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     continue
                 data_str = line[5:].lstrip()
                 if data_str == "[DONE]":
-                    yield MessageStopEvent()
+                    if not terminated:
+                        terminated = True
+                        yield MessageStopEvent()
                     continue
 
                 try:
@@ -65,6 +71,7 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                             PartStartEvent(index=current_item_index, part_type="text"), data
                         )
                     elif item_type == "function_call":
+                        saw_tool_call = True
                         ws_counters[current_item_index] = 0
                         yield with_raw(
                             PartStartEvent(
@@ -151,7 +158,7 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     out_details = usage_data.get("output_tokens_details", {}) or {}
                     incomplete_reason = (resp.get("incomplete_details") or {}).get("reason") or ""
                     if evt_type == "response.completed":
-                        normalized = "end_turn"
+                        normalized = "tool_use" if saw_tool_call else "end_turn"
                     elif incomplete_reason == "max_output_tokens":
                         normalized = "max_tokens"
                     else:
@@ -173,6 +180,9 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                         ),
                         data,
                     )
+                    if not terminated:
+                        terminated = True
+                        yield MessageStopEvent()
 
                 elif evt_type == "response.failed":
                     err = (data.get("response", {}) or {}).get("error", {}) or {}

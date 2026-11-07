@@ -181,6 +181,13 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
     """
     message_id = f"msg_{uuid.uuid4().hex[:24]}"
     held_delta: MessageDeltaEvent | None = None
+    # Anthropic block indices are dense from 0, one start and one stop each.
+    # IR indices are the upstream's: Chat offsets tool calls by 1 and reuses 0
+    # for reasoning then text, Responses uses output_index. So every start takes
+    # the next wire index, and deltas and stops follow the open block's mapping;
+    # one for a block that is not open has no valid wire form and is dropped.
+    wire_index: dict[int, int] = {}
+    next_wire_index = 0
 
     async for event in events:
         if isinstance(event, MessageStartEvent):
@@ -225,15 +232,20 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
                 block = {"type": "text", "text": ""}
             else:
                 block = {"type": event.part_type}
+            wire_index[event.index] = next_wire_index
+            next_wire_index += 1
             yield _sse(
                 "content_block_start",
                 {
                     "type": "content_block_start",
-                    "index": event.index,
+                    "index": wire_index[event.index],
                     "content_block": block,
                 },
             )
         elif isinstance(event, PartDeltaEvent):
+            open_index = wire_index.get(event.index)
+            if open_index is None:
+                continue
             dt = _DELTA_TYPE_MAP.get(event.delta_type, "text_delta")
             delta: dict[str, Any] = {"type": dt}
             if dt == "text_delta":
@@ -248,12 +260,15 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
                 "content_block_delta",
                 {
                     "type": "content_block_delta",
-                    "index": event.index,
+                    "index": open_index,
                     "delta": delta,
                 },
             )
         elif isinstance(event, PartStopEvent):
-            yield _sse("content_block_stop", {"type": "content_block_stop", "index": event.index})
+            open_index = wire_index.pop(event.index, None)
+            if open_index is None:
+                continue
+            yield _sse("content_block_stop", {"type": "content_block_stop", "index": open_index})
         elif isinstance(event, MessageDeltaEvent):
             # Hold until terminal; several deltas merge last-wins per field.
             if held_delta is None:
@@ -301,7 +316,7 @@ async def wrap_with_ping(
             async for ev in events:
                 await queue.put(("event", ev))
             await queue.put(("end", None))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - forwarded to the consumer, which re-raises it
             await queue.put(("error", exc))
 
     task = asyncio.create_task(producer())

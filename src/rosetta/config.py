@@ -15,6 +15,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 Format = Literal["openai_chat", "openai_responses", "anthropic"]
+LogLevel = Literal["debug", "info", "warning", "error"]
 
 
 class Capabilities(BaseModel):
@@ -99,20 +100,31 @@ class ProviderConfig(BaseModel):
 
 class ProxyConfig(BaseModel):
     api_keys: list[str] = Field(default_factory=list)
+    # Serving without keys on a non-loopback host is refused unless this is set.
+    allow_unauthenticated: bool = False
+    # Honour X-Forwarded-For/-Proto only from `forwarded_allow_ips`.
+    trust_proxy_headers: bool = False
+    forwarded_allow_ips: str = "127.0.0.1"
 
 
 class Config(BaseModel):
-    host: str = "0.0.0.0"  # noqa: S104 - all-interfaces bind is intentional for Docker deployments
+    host: str = "127.0.0.1"
     port: int = 7860
     proxy: ProxyConfig = Field(default_factory=ProxyConfig)
-    log_level: Literal["debug", "info", "warning", "error"] = "info"
+    log_level: LogLevel = "info"
+    # Also log request_completed (status, latency, tokens) for every request.
+    log_completed: bool = False
+    # At debug only: add headers (credentials redacted) / bodies (capped) to
+    # request_started, upstream_request and upstream_response.
+    log_headers: bool = False
+    log_bodies: bool = False
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     # Provider for bare model names; must be a key under `providers`.
     default_provider: str | None = None
 
     @model_validator(mode="after")
     def validate_providers(self) -> Config:
-        for key, _prov in self.providers.items():
+        for key in self.providers:
             if "/" in key:
                 raise ValueError(f"Provider key '{key}' must not contain '/'")
         if self.default_provider is not None and self.default_provider not in self.providers:

@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
+from rosetta.config import Format
+
 
 class _IRBase(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -88,7 +90,7 @@ class Tool(_IRBase):
 
 
 class ReasoningConfig(BaseModel):
-    effort: Literal["low", "medium", "high", "xhigh"] | None = None
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
     budget_tokens: int | None = None
     thinking_type: Literal["enabled", "adaptive", "disabled"] | None = None
     summary: Literal["auto", "detailed", "concise"] | None = None
@@ -115,6 +117,8 @@ class CanonicalRequest(BaseModel):
     stream: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict)
     raw_extras: dict[str, Any] = Field(default_factory=dict)
+    # The format whose request carried raw_extras; see codecs.extras.extras_for.
+    raw_extras_format: Format | None = None
 
 
 # Resolve forward references for recursive ToolResultPart.content_parts.

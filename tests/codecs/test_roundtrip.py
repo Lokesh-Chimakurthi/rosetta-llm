@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from rosetta.codecs import anthropic as ac
 from rosetta.codecs import openai_chat as oc
 from rosetta.codecs import openai_responses as orc
+from rosetta.ir.request import ReasoningPart
 
 
 def test_anthropic_request_roundtrip_simple() -> None:
@@ -129,6 +132,7 @@ def test_responses_reasoning_lossless_via_anthropic_signature() -> None:
     # parse anthropic back
     ir2 = ac.parse_request(anthropic_payload)
     rp = ir2.messages[0].parts[0]
+    assert isinstance(rp, ReasoningPart)
     assert rp.encrypted_content == "ENCRYPTED_BLOB"
     assert rp.reasoning_id == "rs_abc"
     # render back to responses
@@ -175,6 +179,87 @@ def test_anthropic_unknown_param_passthrough_via_raw_extras() -> None:
     assert ir.raw_extras.get("custom_unknown_field") == "preserve me"
     rendered = ac.render_request(ir)
     assert rendered.get("custom_unknown_field") == "preserve me"
+
+
+def test_untranslated_anthropic_fields_never_reach_another_format() -> None:
+    """Fields only Anthropic defines (auto mode review, context editing) stay Anthropic-only."""
+    extras = {
+        "safeguards": [{"type": "dangerous_tool_use", "classifier_context": {"v": 1}}],
+        "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
+        "service_tier": "standard_only",
+    }
+    ir = ac.parse_request(
+        {"model": "x", "max_tokens": 16, "messages": [{"role": "user", "content": "hi"}], **extras}
+    )
+    for rendered in (oc.render_request(ir), orc.render_request(ir)):
+        assert not extras.keys() & rendered.keys()
+    assert ac.render_request(ir).items() >= extras.items()
+
+
+def test_shared_openai_fields_cross_between_chat_and_responses_only() -> None:
+    """Chat and Responses define these fields identically; Anthropic defines none of them."""
+    ir = oc.parse_request(
+        {
+            "model": "x",
+            "messages": [{"role": "user", "content": "hi"}],
+            "parallel_tool_calls": False,
+            "store": False,
+            "n": 2,
+            "response_format": {"type": "json_object"},
+        }
+    )
+    responses = orc.render_request(ir)
+    assert (responses["parallel_tool_calls"], responses["store"]) == (False, False)
+    assert "n" not in responses
+    assert "response_format" not in responses
+    assert not {"parallel_tool_calls", "store", "n", "response_format"} & set(
+        ac.render_request(ir)
+    )
+
+
+def test_responses_only_fields_never_reach_chat() -> None:
+    ir = orc.parse_request(
+        {
+            "model": "x",
+            "input": "hi",
+            "text": {"verbosity": "low"},
+            "truncation": "auto",
+            "safety_identifier": "user-1",
+        }
+    )
+    chat = oc.render_request(ir)
+    assert chat["safety_identifier"] == "user-1"
+    assert "text" not in chat
+    assert "truncation" not in chat
+
+
+def test_shared_responses_fields_reach_chat_and_not_anthropic() -> None:
+    shared = {
+        "parallel_tool_calls": False,
+        "store": False,
+        "service_tier": "flex",
+        "prompt_cache_key": "k",
+    }
+    ir = orc.parse_request({"model": "x", "input": "hi", **shared})
+    assert oc.render_request(ir).items() >= shared.items()
+    assert not shared.keys() & ac.render_request(ir).keys()
+
+
+@pytest.mark.parametrize("key", ["previous_response_id", "conversation"])
+def test_responses_server_state_cannot_be_translated(key: str) -> None:
+    """Dropping it would answer without the conversation; refuse with the remedy instead."""
+    with pytest.raises(ValueError, match=f"'{key}'.*full conversation in 'input'"):
+        orc.parse_request({"model": "x", "input": "hi", key: "resp_123"})
+
+
+def test_responses_null_server_state_is_ignored() -> None:
+    ir = orc.parse_request({"model": "x", "input": "hi", "previous_response_id": None})
+    assert [m.role for m in ir.messages] == ["user"]
+
+
+def test_responses_string_input_is_one_user_message() -> None:
+    chat = oc.render_request(orc.parse_request({"model": "x", "input": "hello"}))
+    assert chat["messages"] == [{"role": "user", "content": "hello"}]
 
 
 def test_render_anthropic_max_tokens_synthesized() -> None:

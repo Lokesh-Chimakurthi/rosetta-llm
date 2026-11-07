@@ -7,19 +7,31 @@ o200k_base is an OpenAI-family encoding. Real counts can differ by
 
 from __future__ import annotations
 
-from typing import Any
+import functools
+from typing import TYPE_CHECKING, Any
 
 import orjson
-import tiktoken
 
-_ENCODING = tiktoken.get_encoding("o200k_base")
+if TYPE_CHECKING:
+    from tiktoken import Encoding
+
 _TOOL_OVERHEAD = 16  # rough tokens for the tool envelope per call
+
+
+@functools.cache
+def _encoding() -> Encoding:
+    # Deferred: the encoding costs ~85 MB RSS and may download its BPE file, so
+    # only processes that actually count tokens pay for it. tiktoken's registry
+    # lock makes concurrent first calls load it once.
+    import tiktoken
+
+    return tiktoken.get_encoding("o200k_base")
 
 
 def _encode_len(text: str) -> int:
     if not text:
         return 0
-    return len(_ENCODING.encode(text, disallowed_special=()))
+    return len(_encoding().encode(text, disallowed_special=()))
 
 
 def _walk_content(content: Any) -> int:

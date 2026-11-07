@@ -7,18 +7,33 @@
   // Override with --config flag or ROSETTA_CONFIG env var.
   // =============================================================================
 
-  // Optional: bind address. Defaults to 0.0.0.0:7860
-  "host": "0.0.0.0",
+  // Optional: bind address. Defaults to 127.0.0.1:7860.
+  // A non-loopback host (e.g. "0.0.0.0") requires proxy.api_keys or
+  // proxy.allow_unauthenticated, otherwise startup is refused.
+  "host": "127.0.0.1",
   "port": 7860,
 
-  // Optional: bearer-token auth on the proxy itself.
-  // If omitted or empty array, all incoming requests are accepted.
+  // Optional: API-key auth on the proxy itself. Clients send
+  // "Authorization: Bearer <key>" or "x-api-key: <key>".
+  // If omitted or empty, all incoming requests are accepted.
   "proxy": {
-    "api_keys": ["sk-proxy-XXXX"]
+    "api_keys": ["sk-proxy-XXXX"],
+    // Serve without keys on a non-loopback host (another layer authenticates).
+    "allow_unauthenticated": false,
+    // Honour X-Forwarded-* only from these comma-separated IPs.
+    "trust_proxy_headers": false,
+    "forwarded_allow_ips": "127.0.0.1"
   },
 
-  // Logging: "debug" | "info" | "warning" | "error"
+  // Logging: "debug" | "info" | "warning" | "error" (default "info").
+  // info logs request_started per request; debug adds upstream_request/_response.
+  // Each has a --flag / --no-flag override. See README "Logging".
   "log_level": "info",
+  // Also log request_completed (status, latency, tokens) for every request.
+  "log_completed": false,
+  // Debug only: add headers (credentials redacted) / bodies (first 64 KiB).
+  "log_headers": false,
+  "log_bodies": false,
 
   // Optional: fallback provider for callers that send bare model names
   // without the `<provider>/` prefix (e.g. OpenAI Codex CLI strips

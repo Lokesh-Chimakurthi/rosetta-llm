@@ -11,6 +11,7 @@ from typing import Any
 
 import orjson
 
+from rosetta.codecs.extras import extras_for
 from rosetta.ir.helpers import with_raw
 from rosetta.ir.request import (
     CanonicalRequest,
@@ -76,7 +77,8 @@ def _arguments_to_text(input_value: Any) -> str:
 
 def _arguments_from_text(text: str) -> Any:
     if not text:
-        return {}
+        empty: dict[str, Any] = {}
+        return empty
     try:
         return orjson.loads(text)
     except orjson.JSONDecodeError:
@@ -300,6 +302,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         stream=bool(payload.get("stream", False)),
         metadata=payload.get("metadata") or {},
         raw_extras=raw_extras,
+        raw_extras_format="anthropic",
     )
 
 
@@ -359,7 +362,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
         )
 
     if ir.tools:
-        body["tools"] = []
+        tools: list[dict[str, Any]] = []
         for t in ir.tools:
             tool_body: dict[str, Any] = {}
             if hasattr(t, "_raw") and isinstance(t._raw, dict):
@@ -367,7 +370,8 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
             tool_body["name"] = t.name
             tool_body["description"] = t.description
             tool_body["input_schema"] = t.input_schema or {"type": "object", "properties": {}}
-            body["tools"].append(tool_body)
+            tools.append(tool_body)
+        body["tools"] = tools
         body["tool_choice"] = _render_tool_choice(ir.tool_choice)
 
     if ir.sampling.temperature is not None:
@@ -396,7 +400,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
     if ir.stream:
         body["stream"] = True
 
-    for k, v in ir.raw_extras.items():
+    for k, v in extras_for(ir, "anthropic").items():
         body.setdefault(k, v)
 
     return body

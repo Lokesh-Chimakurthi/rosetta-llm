@@ -1,6 +1,8 @@
 # Configuring providers:
 #   Use api_key_env for each provider and add the matching secrets in
 #   Settings → Variables and secrets (ANTHROPIC_API_KEY, etc.).
+# A Space is public: config.json must set "proxy": {"api_keys": [...]},
+# otherwise the proxy refuses to start on 0.0.0.0.
 # =============================================================================
 
 FROM ghcr.io/lokesh-chimakurthi/rosetta-llm:latest

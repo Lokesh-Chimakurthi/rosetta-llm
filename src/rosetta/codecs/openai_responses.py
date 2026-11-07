@@ -11,6 +11,7 @@ import time
 import uuid
 from typing import Any, Literal
 
+from rosetta.codecs.extras import extras_for
 from rosetta.ir.helpers import with_raw
 from rosetta.ir.request import (
     CanonicalRequest,
@@ -45,13 +46,14 @@ _REQUEST_TOP_LEVEL_KEYS = frozenset(
         "include",
         "metadata",
         "user",
-        "store",
-        "previous_response_id",
-        "parallel_tool_calls",
-        "service_tier",
-        "prompt_cache_key",
     }
 )
+
+# Point at conversation state an OpenAI Responses server stores; no other
+# format can read it, and translating without it silently loses the
+# conversation. parse_request only runs when translating: a request to an
+# openai_responses provider passes through without being parsed.
+_SERVER_STATE_KEYS = ("previous_response_id", "conversation")
 
 
 def _parse_reasoning_item(item: dict[str, Any]) -> Message:
@@ -208,13 +210,26 @@ def _parse_input_item(item: dict[str, Any]) -> Message | None:
 
 
 def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
-    messages = []
-    for item in payload.get("input", []) or []:
-        if not isinstance(item, dict):
-            continue
-        msg = _parse_input_item(item)
-        if msg is not None:
-            messages.append(msg)
+    for key in _SERVER_STATE_KEYS:
+        if payload.get(key) is not None:
+            raise ValueError(
+                f"'{key}' refers to conversation state stored by an OpenAI Responses server, "
+                "which this model's provider cannot read; send the full conversation in "
+                "'input' instead, or use a model whose provider format is openai_responses"
+            )
+    messages: list[Message] = []
+    raw_input = payload.get("input")
+    if isinstance(raw_input, str):
+        # The API reads a string input as a single user message.
+        if raw_input:
+            messages.append(Message(role="user", parts=[TextPart(text=raw_input)]))
+    else:
+        for item in raw_input or []:
+            if not isinstance(item, dict):
+                continue
+            msg = _parse_input_item(item)
+            if msg is not None:
+                messages.append(msg)
 
     tools: list[Tool] = []
     for t in payload.get("tools") or []:
@@ -269,6 +284,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         stream=bool(payload.get("stream", False)),
         metadata=payload.get("metadata") or {},
         raw_extras=raw_extras,
+        raw_extras_format="openai_responses",
     )
 
 
@@ -333,9 +349,10 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
                         item["id"] = part.reasoning_id
                     if part.encrypted_content:
                         item["encrypted_content"] = part.encrypted_content
-                    item["summary"] = (
+                    summary: list[dict[str, str]] = (
                         [{"type": "summary_text", "text": part.text}] if part.text else []
                     )
+                    item["summary"] = summary
                     body["input"].append(item)
             elif isinstance(part, TextPart):
                 ctype = "input_text" if msg.role == "user" else "output_text"
@@ -399,7 +416,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
     if ir.stream:
         body["stream"] = True
 
-    for k, v in ir.raw_extras.items():
+    for k, v in extras_for(ir, "openai_responses").items():
         body.setdefault(k, v)
 
     return body
@@ -557,9 +574,10 @@ def render_response(ir: CanonicalResponse) -> dict[str, Any]:
                     item["id"] = part.reasoning_id
                 if part.encrypted_content:
                     item["encrypted_content"] = part.encrypted_content
-                item["summary"] = (
+                summary: list[dict[str, str]] = (
                     [{"type": "summary_text", "text": part.text}] if part.text else []
                 )
+                item["summary"] = summary
                 output.append(item)
             elif isinstance(part, RefusalPart):
                 text_parts.append({"type": "refusal", "refusal": part.text})

@@ -1,0 +1,14 @@
+: Chat Completions has no reasoning field; this follows the de facto
+: delta.reasoning_content convention documented at
+: https://api-docs.deepseek.com/guides/reasoning_model
+
+data: {"id":"chatcmpl-789","object":"chat.completion.chunk","created":1694268192,"model":"deepseek-reasoner","choices":[{"index":0,"delta":{"role":"assistant","content":null,"reasoning_content":""},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"chatcmpl-789","object":"chat.completion.chunk","created":1694268192,"model":"deepseek-reasoner","choices":[{"index":0,"delta":{"content":null,"reasoning_content":"9.11 vs 9.8: compare tenths, 1 < 8."},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"chatcmpl-789","object":"chat.completion.chunk","created":1694268192,"model":"deepseek-reasoner","choices":[{"index":0,"delta":{"content":"9.8 is greater.","reasoning_content":null},"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"chatcmpl-789","object":"chat.completion.chunk","created":1694268192,"model":"deepseek-reasoner","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}
+
+data: [DONE]
+

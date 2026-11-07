@@ -1,0 +1,8 @@
+: Chat Completions streams report failures as a bare error object (the shape
+: at https://platform.openai.com/docs/guides/error-codes); the stream ends
+: without a finish_reason or [DONE].
+
+data: {"id":"chatcmpl-999","object":"chat.completion.chunk","created":1694268193,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"role":"assistant","content":"Hel"},"logprobs":null,"finish_reason":null}]}
+
+data: {"error":{"message":"The server had an error while processing your request.","type":"server_error","param":null,"code":null}}
+

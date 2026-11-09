@@ -623,3 +623,36 @@ def test_review_outcome_is_logged_and_classifier_failure_warns(
         "m1",
         "judge",
     }
+
+
+def test_rosetta_reviewed_anthropic_provider_json_reply_gets_verdicts(fake: FakeUpstream) -> None:
+    tool_id = "toolu_json"
+    reply = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "glm",
+        "content": [
+            {"type": "tool_use", "id": tool_id, "name": "Bash", "input": {"command": "ls"}}
+        ],
+        "stop_reason": "tool_use",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 5, "output_tokens": 5},
+    }
+    fake.add_json("mirror", "POST", "/messages", 200, reply)
+    fake.add_json(
+        "cls",
+        "POST",
+        _CLS_PATH,
+        200,
+        _classifier_reply(_verdicts(**{tool_id: {"flagged": False}})),
+    )
+    with _client(fake) as c:
+        r = c.post("/v1/messages", json=_messages("mirror/glm"), headers={"anthropic-beta": _BETA})
+
+    sent = next(r for r in fake.requests if r.provider_key == "mirror")
+    assert "safeguards" not in sent.json()
+    assert "anthropic-beta" not in sent.headers
+    body = r.json()
+    assert {k: v for k, v in body.items() if k != "safeguard_results"} == reply
+    assert _results(body) == {tool_id: {"type": "evaluated", "outcome": "not_flagged"}}

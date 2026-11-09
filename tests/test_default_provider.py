@@ -7,18 +7,16 @@ arrives at the bridge as ``claude-haiku-4-5-20251001``).
 
 from __future__ import annotations
 
-import json
 import os
+from typing import Any
 
-import httpx
+import httpx2
 import pytest
-import respx
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from rosetta.app import create_app
 from rosetta.config import Config
 from rosetta.pipeline import _resolve_model
+from tests.support.upstream import FakeUpstream, build_client
 
 
 def _make_config(default_provider: str | None = None) -> Config:
@@ -38,7 +36,7 @@ def _make_config(default_provider: str | None = None) -> Config:
     )
 
 
-def _chat(config: Config, model: str) -> tuple[httpx.Response, respx.Route]:
+def _chat(config: Config, model: str) -> tuple[httpx2.Response, FakeUpstream]:
     upstream_resp = {
         "id": "chatcmpl-up",
         "object": "chat.completion",
@@ -52,31 +50,28 @@ def _chat(config: Config, model: str) -> tuple[httpx.Response, respx.Route]:
         ],
         "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
     }
-    with (
-        TestClient(create_app(config)) as c,
-        respx.mock(base_url="https://upstream.test/v1", assert_all_called=False) as mock,
-    ):
-        route = mock.post("/chat/completions").mock(
-            return_value=httpx.Response(200, json=upstream_resp)
-        )
+    fake = FakeUpstream()
+    fake.add_json("abc", "POST", "/chat/completions", 200, upstream_resp)
+    raw: dict[str, Any] = config.model_dump()
+    with build_client(raw, fake) as c:
         r = c.post(
             "/v1/chat/completions",
             json={"model": model, "messages": [{"role": "user", "content": "hi"}]},
         )
-    return r, route
+    return r, fake
 
 
 def test_e2e_bare_model_routed_to_default_provider() -> None:
-    r, route = _chat(_make_config(default_provider="abc"), "m1")
+    r, fake = _chat(_make_config(default_provider="abc"), "m1")
     assert r.status_code == 200
-    assert json.loads(route.calls.last.request.content)["model"] == "m1"
+    assert fake.requests[-1].json()["model"] == "m1"
 
 
 def test_e2e_bare_model_without_default_is_400_with_remedy() -> None:
-    r, route = _chat(_make_config(), "m1")
+    r, fake = _chat(_make_config(), "m1")
     assert r.status_code == 400
     assert "default_provider" in r.json()["error"]["message"]
-    assert not route.called
+    assert fake.requests == []
 
 
 def test_bare_model_resolves_when_default_set() -> None:

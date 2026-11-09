@@ -15,7 +15,7 @@ import pytest
 from pydantic import ValidationError
 
 from rosetta.config import Config
-from rosetta.pipeline import _resolve_model
+from rosetta.routing import resolve_model
 from tests.support.upstream import FakeUpstream, build_client
 
 
@@ -76,18 +76,18 @@ def test_e2e_bare_model_without_default_is_400_with_remedy() -> None:
 
 def test_bare_model_resolves_when_default_set() -> None:
     config = _make_config(default_provider="abc")
-    provider, key, upstream = _resolve_model("m1", config)
+    provider, key, upstream = resolve_model("m1", config)
     assert (key, upstream) == ("abc", "m1")
     assert provider is config.providers["abc"]
 
 
 def test_bare_model_raises_with_remedy_when_no_default() -> None:
     with pytest.raises(ValueError, match=r"must be in format.*default_provider"):
-        _resolve_model("m1", _make_config())
+        resolve_model("m1", _make_config())
 
 
 def test_prefixed_model_still_works_with_default() -> None:
-    _, key, upstream = _resolve_model("abc/m1", _make_config(default_provider="abc"))
+    _, key, upstream = resolve_model("abc/m1", _make_config(default_provider="abc"))
     assert (key, upstream) == ("abc", "m1")
 
 
@@ -99,7 +99,7 @@ def test_config_rejects_unknown_default_provider() -> None:
 def test_claude_code_gateway_prefix_still_requires_inner_slash() -> None:
     """default_provider does not rescue the claude-code/ gateway path."""
     with pytest.raises(ValueError, match="has gateway prefix but no provider"):
-        _resolve_model("claude-code/m1", _make_config(default_provider="abc"))
+        resolve_model("claude-code/m1", _make_config(default_provider="abc"))
 
 
 @pytest.mark.parametrize("model_id", ["", "abc/"])
@@ -107,4 +107,4 @@ def test_empty_model_name_not_forwarded(model_id: str) -> None:
     """An empty model name (missing "model" field, or "abc/") raises the format
     error instead of forwarding model="" upstream."""
     with pytest.raises(ValueError, match="must be in format"):
-        _resolve_model(model_id, _make_config(default_provider="abc"))
+        resolve_model(model_id, _make_config(default_provider="abc"))

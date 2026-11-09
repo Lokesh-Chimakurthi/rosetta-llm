@@ -134,7 +134,12 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                 )
 
 
-def _sse(event_name: str, payload: dict[str, Any]) -> bytes:
+# Anthropic SDK clients drop a stream that is silent for too long.
+PING_INTERVAL_S = 15.0
+PING_EVENT = b'event: ping\ndata: {"type":"ping"}\n\n'
+
+
+def sse_event(event_name: str, payload: dict[str, Any]) -> bytes:
     return f"event: {event_name}\ndata: ".encode() + orjson.dumps(payload) + b"\n\n"
 
 
@@ -196,7 +201,7 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
                 message_id = raw_id
             # All four usage fields zeroed: signals prompt-caching support to
             # clients (LiteLLM precedent) without buffering content.
-            yield _sse(
+            yield sse_event(
                 "message_start",
                 {
                     "type": "message_start",
@@ -234,7 +239,7 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
                 block = {"type": event.part_type}
             wire_index[event.index] = next_wire_index
             next_wire_index += 1
-            yield _sse(
+            yield sse_event(
                 "content_block_start",
                 {
                     "type": "content_block_start",
@@ -256,7 +261,7 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
                 delta["thinking"] = event.text
             elif dt == "signature_delta":
                 delta["signature"] = event.text
-            yield _sse(
+            yield sse_event(
                 "content_block_delta",
                 {
                     "type": "content_block_delta",
@@ -268,7 +273,9 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
             open_index = wire_index.pop(event.index, None)
             if open_index is None:
                 continue
-            yield _sse("content_block_stop", {"type": "content_block_stop", "index": open_index})
+            yield sse_event(
+                "content_block_stop", {"type": "content_block_stop", "index": open_index}
+            )
         elif isinstance(event, MessageDeltaEvent):
             # Hold until terminal; several deltas merge last-wins per field.
             if held_delta is None:
@@ -280,13 +287,13 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
                 )
         elif isinstance(event, MessageStopEvent):
             if held_delta is not None:
-                yield _sse("message_delta", _message_delta_payload(held_delta))
+                yield sse_event("message_delta", _message_delta_payload(held_delta))
                 held_delta = None
             yield b'event: message_stop\ndata: {"type":"message_stop"}\n\n'
         elif isinstance(event, PingEvent):
-            yield b'event: ping\ndata: {"type":"ping"}\n\n'
+            yield PING_EVENT
         elif isinstance(event, ErrorEvent):
-            yield _sse(
+            yield sse_event(
                 "error",
                 {
                     "type": "error",
@@ -297,12 +304,12 @@ async def render(events: AsyncIterator[CanonicalStreamEvent]) -> AsyncIterator[b
     # Defensive: upstream closed without message_stop — flush the held delta
     # so a truncated stream still reports its stop reason and usage.
     if held_delta is not None:
-        yield _sse("message_delta", _message_delta_payload(held_delta))
+        yield sse_event("message_delta", _message_delta_payload(held_delta))
 
 
 async def wrap_with_ping(
     events: AsyncIterator[CanonicalStreamEvent],
-    interval: float = 15.0,
+    interval: float = PING_INTERVAL_S,
 ) -> AsyncIterator[CanonicalStreamEvent]:
     """Inject ping events when the source is silent for `interval` seconds.
 

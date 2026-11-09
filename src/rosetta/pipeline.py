@@ -16,71 +16,34 @@ Translation invariants:
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from typing import Any
 
 import orjson
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from rosetta.codecs import anthropic as ac_codec
-from rosetta.codecs import openai_chat as oc_codec
-from rosetta.codecs import openai_responses as or_codec
+from rosetta.auto_mode.classifier import Classifier
+from rosetta.auto_mode.review import Review, requested_session, without_review_request
 from rosetta.codecs.extras import extras_for
+from rosetta.codecs.registry import (
+    PARSE_REQUEST,
+    PARSE_RESPONSE,
+    RENDER_REQUEST,
+    RENDER_RESPONSE,
+    STREAM_PARSE,
+    STREAM_RENDER,
+    UPSTREAM_PATH,
+)
 from rosetta.config import Config, Format, ProviderConfig
 from rosetta.errors import format_error, format_stream_error
 from rosetta.ir.events import MessageDeltaEvent
-from rosetta.ir.request import CanonicalRequest
-from rosetta.ir.response import CanonicalResponse, StopInfo, Usage
+from rosetta.ir.response import StopInfo, Usage
 from rosetta.observability import RequestLog, log_translation_failed, request_log
 from rosetta.routes.health import record_provider_status
+from rosetta.routing import resolve_model
 from rosetta.stream_codecs import anthropic as ac_stream
-from rosetta.stream_codecs import openai_chat as oc_stream
-from rosetta.stream_codecs import openai_responses as or_stream
 from rosetta.upstream import UpstreamClient, UpstreamError, UpstreamStatusError
-
-type ParseRequest = Callable[[dict[str, Any]], CanonicalRequest]
-type RenderRequest = Callable[[CanonicalRequest], dict[str, Any]]
-type ParseResponse = Callable[[dict[str, Any]], CanonicalResponse]
-type RenderResponse = Callable[[CanonicalResponse], dict[str, Any]]
-type StreamParse = Callable[[AsyncIterator[bytes]], AsyncIterator[Any]]
-type StreamRender = Callable[[AsyncIterator[Any]], AsyncIterator[bytes]]
-
-_PARSE_REQ: dict[str, ParseRequest] = {
-    "anthropic": ac_codec.parse_request,
-    "openai_chat": oc_codec.parse_request,
-    "openai_responses": or_codec.parse_request,
-}
-_RENDER_REQ: dict[str, RenderRequest] = {
-    "anthropic": ac_codec.render_request,
-    "openai_chat": oc_codec.render_request,
-    "openai_responses": or_codec.render_request,
-}
-_PARSE_RESP: dict[str, ParseResponse] = {
-    "anthropic": ac_codec.parse_response,
-    "openai_chat": oc_codec.parse_response,
-    "openai_responses": or_codec.parse_response,
-}
-_RENDER_RESP: dict[str, RenderResponse] = {
-    "anthropic": ac_codec.render_response,
-    "openai_chat": oc_codec.render_response,
-    "openai_responses": or_codec.render_response,
-}
-_STREAM_PARSE: dict[str, StreamParse] = {
-    "anthropic": ac_stream.parse,
-    "openai_chat": oc_stream.parse,
-    "openai_responses": or_stream.parse,
-}
-_STREAM_RENDER: dict[str, StreamRender] = {
-    "anthropic": ac_stream.render,
-    "openai_chat": oc_stream.render,
-    "openai_responses": or_stream.render,
-}
-_FORMAT_PATH: dict[str, str] = {
-    "openai_chat": "/chat/completions",
-    "openai_responses": "/responses",
-    "anthropic": "/messages",
-}
 
 # Anthropic headers that MUST be forwarded upstream per the Claude Code LLM Gateway spec.
 _ANTHROPIC_FORWARD_HEADERS = frozenset(
@@ -98,41 +61,8 @@ def _forwarded_headers(request: Request) -> dict[str, str]:
     return {k: request.headers[k] for k in _ANTHROPIC_FORWARD_HEADERS if k in request.headers}
 
 
-_CLAUDE_CODE_GW_PREFIX = "claude-code/"
-
-
-def _resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, str]:
-    # Claude Code gateway prefix: strip and re-resolve the underlying provider/model.
-    if model_id.startswith(_CLAUDE_CODE_GW_PREFIX):
-        inner = model_id[len(_CLAUDE_CODE_GW_PREFIX) :]
-        if "/" in inner:
-            return _resolve_model(inner, config)
-        raise ValueError(f"Model id '{model_id}' has gateway prefix but no provider/model")
-    if "/" not in model_id:
-        # Some clients (e.g. OpenAI Codex CLI) strip the provider prefix, so the
-        # operator may name a default provider. An empty id is never routed.
-        if model_id and config.default_provider is not None:
-            return _resolve_model(f"{config.default_provider}/{model_id}", config)
-        raise ValueError(
-            f"Model id '{model_id}' must be in format '<provider>/<model>' "
-            "(or set 'default_provider' in config to route bare model names)"
-        )
-    provider_key, model_name = model_id.split("/", 1)
-    if not model_name:
-        raise ValueError(f"Model id '{model_id}' must be in format '<provider>/<model>'")
-    provider = config.providers.get(provider_key)
-    if provider is None:
-        raise ValueError(f"Unknown provider '{provider_key}'")
-    upstream_name = model_name
-    for m in provider.static_models:
-        if m.id == model_name:
-            upstream_name = m.effective_upstream_name
-            break
-    return provider, provider_key, upstream_name
-
-
 async def handle(
-    inbound_format: str,
+    inbound_format: Format,
     payload: dict[str, Any],
     request: Request,
 ) -> Response:
@@ -144,7 +74,7 @@ async def handle(
     model_id = payload.get("model", "")
     rec.model = model_id or None
     try:
-        provider, provider_key, upstream_name = _resolve_model(model_id, config)
+        provider, provider_key, upstream_name = resolve_model(model_id, config)
     except ValueError as e:
         rec.error = "invalid_request"
         return JSONResponse(
@@ -155,7 +85,7 @@ async def handle(
     # Copy and rewrite the model field without mutating the caller's dict.
     upstream_body = {**payload, "model": upstream_name}
     is_stream = bool(payload.get("stream", False))
-    upstream_path = _FORMAT_PATH[provider.format]
+    upstream_path = UPSTREAM_PATH[provider.format]
 
     rec.upstream_model = upstream_name
     rec.stream = is_stream
@@ -163,6 +93,22 @@ async def handle(
     rec.log_started()
 
     fwd_headers = _forwarded_headers(request)
+
+    review: Review | None = None
+    if inbound_format == "anthropic" and _rosetta_reviews(provider, inbound_format):
+        session = requested_session(payload)
+        if session is not None:
+            classifier: Classifier | None = request.app.state.classifier
+            if classifier is None:
+                rec.error = "auto_mode_unreviewed"
+                return JSONResponse(
+                    content=format_error(
+                        inbound_format, 400, "invalid_request_error", _unreviewed_message(model_id)
+                    ),
+                    status_code=400,
+                )
+            review = Review(classifier, session)
+            upstream_body, fwd_headers = without_review_request(upstream_body, fwd_headers)
 
     if inbound_format == provider.format:
         return await _passthrough(
@@ -175,6 +121,7 @@ async def handle(
             upstream,
             fwd_headers,
             status_dict,
+            review,
         )
 
     return await _translate(
@@ -188,6 +135,22 @@ async def handle(
         upstream,
         fwd_headers,
         status_dict,
+        review,
+    )
+
+
+def _rosetta_reviews(provider: ProviderConfig, inbound_format: Format) -> bool:
+    """Whether Rosetta, not the provider, answers Claude Code's auto mode review."""
+    return provider.format != inbound_format or provider.auto_mode_review == "rosetta"
+
+
+def _unreviewed_message(model_id: str) -> str:
+    # Claude Code retries without `safeguards` on a 400 that names the field:
+    # https://code.claude.com/docs/en/llm-gateway-protocol#feature-pass-through
+    return (
+        f"safeguards: Rosetta cannot review auto mode tool calls for '{model_id}' because "
+        "auto_mode.classifier_model is not set in its config; set it, or start Claude Code "
+        "with CLAUDE_CODE_AUTO_MODE_SERVER=0 to use its own classifier"
     )
 
 
@@ -196,11 +159,12 @@ async def _passthrough(
     upstream_path: str,
     body: dict[str, Any],
     is_stream: bool,
-    inbound_format: str,
+    inbound_format: Format,
     request: Request,
     upstream: UpstreamClient,
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
+    review: Review | None,
 ) -> Response:
     body_bytes = orjson.dumps(body)
     if is_stream:
@@ -214,6 +178,7 @@ async def _passthrough(
                 request,
                 inbound_format,
                 status_dict,
+                review,
             ),
             media_type="text/event-stream",
             headers=_STREAM_HEADERS,
@@ -230,6 +195,15 @@ async def _passthrough(
         )
     if not resp.ok:
         request_log().error = "upstream_status"
+    elif review is not None:
+        try:
+            message = resp.json()
+        except ValueError:
+            message = None
+        if isinstance(message, dict):
+            return JSONResponse(
+                content=await review.stamp_message(message), status_code=resp.status
+            )
     return Response(
         content=resp.body,
         status_code=resp.status,
@@ -275,13 +249,17 @@ async def _passthrough_stream_with_recovery(
     body: bytes,
     fwd_headers: dict[str, str],
     request: Request,
-    inbound_format: str,
+    inbound_format: Format,
     status_dict: dict[str, Any],
+    review: Review | None,
 ) -> AsyncIterator[bytes]:
     rec = request_log()
     try:
         async with upstream.stream(provider_key, upstream_path, body, fwd_headers) as stream:
-            async for chunk in stream.iter_bytes():
+            chunks = stream.iter_bytes()
+            if review is not None:
+                chunks = review.stamp_stream(chunks)
+            async for chunk in chunks:
                 if await request.is_disconnected():
                     rec.client_disconnected = True
                     break
@@ -294,7 +272,7 @@ async def _passthrough_stream_with_recovery(
 
 
 async def _translate(
-    inbound_format: str,
+    inbound_format: Format,
     provider_format: Format,
     payload: dict[str, Any],
     provider_key: str,
@@ -304,10 +282,11 @@ async def _translate(
     upstream: UpstreamClient,
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
+    review: Review | None,
 ) -> Response:
     try:
-        ir = _PARSE_REQ[inbound_format](payload)
-        upstream_body = _RENDER_REQ[provider_format](ir)
+        ir = PARSE_REQUEST[inbound_format](payload)
+        upstream_body = RENDER_REQUEST[provider_format](ir)
     except Exception as e:  # noqa: BLE001 - any codec failure on client input becomes a 400; logged
         log_translation_failed("request", e)
         return JSONResponse(
@@ -330,6 +309,7 @@ async def _translate(
                 upstream,
                 fwd_headers,
                 status_dict,
+                review,
             ),
             media_type="text/event-stream",
             headers=_STREAM_HEADERS,
@@ -367,8 +347,8 @@ async def _translate(
     record_provider_status(status_dict, provider_key, ok=True)
     try:
         upstream_data = resp.json()
-        ir_resp = _PARSE_RESP[provider_format](upstream_data)
-        out = _RENDER_RESP[inbound_format](ir_resp)
+        ir_resp = PARSE_RESPONSE[provider_format](upstream_data)
+        out = RENDER_RESPONSE[inbound_format](ir_resp)
     except Exception as e:  # noqa: BLE001 - any codec failure on upstream output becomes a 502; logged
         log_translation_failed("response", e)
         return JSONResponse(
@@ -376,12 +356,14 @@ async def _translate(
             status_code=502,
         )
     _record_usage(request_log(), ir_resp.usage, ir_resp.stop)
+    if review is not None:
+        out = await review.stamp_message(out)
     return JSONResponse(content=out)
 
 
 async def _translate_stream(
-    inbound_format: str,
-    provider_format: str,
+    inbound_format: Format,
+    provider_format: Format,
     payload: dict[str, Any],
     provider_key: str,
     upstream_path: str,
@@ -389,16 +371,19 @@ async def _translate_stream(
     upstream: UpstreamClient,
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
+    review: Review | None,
 ) -> AsyncIterator[bytes]:
     rec = request_log()
     try:
         async with upstream.stream(
             provider_key, upstream_path, orjson.dumps(payload), fwd_headers
         ) as stream:
-            ir_events = _usage_tap(_STREAM_PARSE[provider_format](stream.iter_bytes()), rec)
+            ir_events = _usage_tap(STREAM_PARSE[provider_format](stream.iter_bytes()), rec)
             if inbound_format == "anthropic":
                 ir_events = ac_stream.wrap_with_ping(ir_events)
-            out_bytes = _STREAM_RENDER[inbound_format](ir_events)
+            out_bytes = STREAM_RENDER[inbound_format](ir_events)
+            if review is not None:
+                out_bytes = review.stamp_stream(out_bytes)
 
             async for chunk in out_bytes:
                 if await request.is_disconnected():

@@ -13,7 +13,8 @@ import logging
 import re
 import time
 import uuid
-from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping
+from collections.abc import Awaitable, Callable, Generator, Iterable, Mapping, MutableMapping
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -36,6 +37,7 @@ _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 BODY_LOG_LIMIT = 64 * 1024
 
 type Route = Literal["passthrough", "translate"]
+type AutoModeReviewOutcome = Literal["no_tool_calls", "reviewed", "unavailable"]
 
 _STARTED_FIELDS = ("path", "model", "route", "stream")
 _COMPLETED_FIELDS = (
@@ -51,6 +53,9 @@ _COMPLETED_FIELDS = (
     "stop_reason",
     "error",
     "client_disconnected",
+    "auto_mode_review",
+    "auto_mode_flagged",
+    "auto_mode_review_ms",
 )
 _COMPLETED_DEBUG_FIELDS = (
     "cache_read_tokens",
@@ -138,6 +143,9 @@ class RequestLog:
     reasoning_tokens: int | None = None
     session_id: str | None = None
     dropped_fields: list[str] | None = None
+    auto_mode_review: AutoModeReviewOutcome | None = None
+    auto_mode_flagged: int | None = None
+    auto_mode_review_ms: int | None = None
     inbound_headers: Mapping[str, str] | None = None
     body_tap: _BodyTap | None = None
     started_logged: bool = False
@@ -178,6 +186,30 @@ def _present(rec: RequestLog, names: tuple[str, ...]) -> dict[str, Any]:
 
 
 _REQUEST_LOG: ContextVar[RequestLog | None] = ContextVar("rosetta_request_log", default=None)
+
+
+@contextmanager
+def sub_request_log(upstream_model: str) -> Generator[RequestLog]:
+    """Give an extra upstream call made for this request its own record.
+
+    Upstream events then name `upstream_model` and the request's own upstream
+    fields stay untouched; log lines keep the request id. The record is never
+    emitted as a request event.
+    """
+    parent = request_log()
+    child = RequestLog(
+        request_id="",
+        path=parent.path,
+        debug=parent.debug,
+        log_headers=parent.log_headers,
+        log_bodies=parent.log_bodies,
+        upstream_model=upstream_model,
+    )
+    token = _REQUEST_LOG.set(child)
+    try:
+        yield child
+    finally:
+        _REQUEST_LOG.reset(token)
 
 
 def request_log() -> RequestLog:

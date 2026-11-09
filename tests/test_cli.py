@@ -202,3 +202,43 @@ def test_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
         main(["--version"])
     assert info.value.code == 0
     assert capsys.readouterr().out.strip() == f"rosetta-llm {__version__}"
+
+
+def test_check_summarises_auto_mode_review(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    instructions = tmp_path / "auto-mode.md"
+    instructions.write_text("Never deploy on Fridays.")
+    auto_mode = {
+        "classifier_model": "chat/m1",
+        "builtin_rules": "none",
+        "instructions_file": str(instructions),
+    }
+    main(["check", "--config", _config(tmp_path, auto_mode=auto_mode)])
+    out = capsys.readouterr().out
+    assert f"auto mode:     classifier chat/m1; no built-in rules; {instructions}" in out
+    assert "Never deploy" not in out
+    assert out.rstrip().endswith("ok")
+
+
+def test_check_exits_2_when_auto_mode_cannot_be_set_up(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    auto_mode = {"classifier_model": "chat/m1", "claude_cli": str(tmp_path / "no-claude")}
+    with pytest.raises(SystemExit) as info:
+        main(["check", "--config", _config(tmp_path, auto_mode=auto_mode)])
+    assert info.value.code == 2
+    captured = capsys.readouterr()
+    assert "auto_mode.builtin_rules" in captured.err
+    assert "ok" not in captured.out
+
+
+def test_serve_exits_2_when_auto_mode_cannot_be_set_up(
+    tmp_path: Path, served: list[dict[str, Any]], capsys: pytest.CaptureFixture[str]
+) -> None:
+    auto_mode = {"classifier_model": "ghost/m1", "builtin_rules": "none"}
+    with pytest.raises(SystemExit) as info:
+        main(["serve", "--config", _config(tmp_path, auto_mode=auto_mode)])
+    assert info.value.code == 2
+    assert "auto_mode.classifier_model: Unknown provider 'ghost'" in capsys.readouterr().err
+    assert served == []

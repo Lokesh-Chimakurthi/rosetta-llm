@@ -20,6 +20,8 @@ from pydantic import ValidationError
 from rosetta import __version__
 from rosetta.app import create_app
 from rosetta.auth import InsecureBindError, ensure_safe_bind
+from rosetta.auto_mode.classifier import describe, prepare
+from rosetta.auto_mode.instructions import SECTIONS, AutoModeSetupError
 from rosetta.config import Config, LogLevel, load_config
 from rosetta.observability import setup_logging
 
@@ -172,7 +174,7 @@ def _serve(args: argparse.Namespace) -> None:
     setup_logging(config.log_level)
     try:
         app = create_app(config)
-    except InsecureBindError as exc:
+    except (InsecureBindError, AutoModeSetupError) as exc:
         _fail(str(exc))
     uvicorn.run(
         app,
@@ -238,8 +240,29 @@ def _check(args: argparse.Namespace) -> None:
             else f"{count} model{'s' if count != 1 else ''}"
         )
         lines.append(f"  {key:<{width}}  {prov.format:<16}  {models}")
+    lines.append(f"auto mode:     {_auto_mode_summary(config)}")
     lines.append("ok")
     print("\n".join(lines))
+
+
+def _auto_mode_summary(config: Config) -> str:
+    """Sets the classifier up as `serve` would (running the Claude Code CLI if configured)."""
+    if config.auto_mode is None:
+        return "off (auto_mode not set)"
+    try:
+        summary = describe(*prepare(config, config.auto_mode))
+    except AutoModeSetupError as exc:
+        _fail(str(exc))
+    rules = summary["builtin_rules"]
+    builtin = (
+        "no built-in rules"
+        if rules is None
+        else f"Claude Code {rules['claude_code']} built-in rules ("
+        + ", ".join(f"{rules[s]} {s}" for s in SECTIONS)
+        + ")"
+    )
+    instructions = summary["instructions_file"] or "no instructions file"
+    return f"classifier {summary['classifier_model']}; {builtin}; {instructions}"
 
 
 def _version(_args: argparse.Namespace) -> None:

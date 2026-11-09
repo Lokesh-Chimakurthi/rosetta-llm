@@ -41,6 +41,25 @@
   // Omit for strict mode where every request must carry an explicit prefix.
   // "default_provider": "abc",
 
+  // Optional: answer Claude Code's auto mode review for providers that cannot.
+  // Without it, Claude Code in auto mode denies tool calls on translated models.
+  // Uncomment to enable; see README "Auto mode classifier".
+  //   classifier_model (required): the reviewing model, <provider_key>/<model_name>.
+  //   timeout_seconds: wait for a verdict, then deny the call (default 30).
+  //   max_output_tokens: cap on the classifier's reply (default 4096).
+  //   builtin_rules: "claude_cli" (default) loads Claude Code's built-in rules at
+  //     startup by running `<claude_cli> auto-mode defaults`, and startup fails if
+  //     it can't; "none" uses only the user's rules and the instructions file.
+  //   instructions_file: optional Markdown appended to the classifier's prompt.
+  // "auto_mode": {
+  //   "classifier_model": "abc/kimi-k2.5",
+  //   "timeout_seconds": 30,
+  //   "max_output_tokens": 4096,
+  //   "builtin_rules": "claude_cli",
+  //   "claude_cli": "claude",
+  //   "instructions_file": "~/.rosetta-llm/auto-mode.md"
+  // },
+
   // =============================================================================
   // Provider definitions. Keys are the prefix used in model ids.
   // Model id format: <provider_key>/<model_name>
@@ -111,6 +130,10 @@
       "extra_headers": {
         "anthropic-version": "2023-06-01"
       },
+      // Who reviews auto mode tool calls: "upstream" (default; the provider,
+      // as the Anthropic API does) or "rosetta" (auto_mode.classifier_model,
+      // for Anthropic-format providers that return no verdicts).
+      "auto_mode_review": "upstream",
       // Auto-discover all models from upstream
       "models": ["*"]
     },

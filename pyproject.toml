@@ -1,6 +1,6 @@
 [project]
 name = "rosetta-llm"
-version = "0.2.3"
+dynamic = ["version"]
 description = "Multi-format bidirectional LLM proxy — translates between OpenAI Chat, OpenAI Responses, and Anthropic Messages"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -48,8 +48,16 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning>=0.14.1"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+bump = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rosetta"]

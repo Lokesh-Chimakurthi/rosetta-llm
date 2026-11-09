@@ -5,6 +5,12 @@
 # -----------------------------------------------------------------------------
 FROM python:3.13-slim AS builder
 
+# No .git in the image, so the version cannot be derived from tags here;
+# the tag-triggered workflow passes it in. Local builds need
+# --build-arg ROSETTA_VERSION=<x.y.z> or the build fails.
+ARG ROSETTA_VERSION
+ENV UV_DYNAMIC_VERSIONING_BYPASS=$ROSETTA_VERSION
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \

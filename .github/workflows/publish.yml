@@ -15,20 +15,12 @@ jobs:
       needs_publish: ${{ steps.check.outputs.needs_publish }}
 
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: false
-
       - name: Check if version exists on PyPI
         id: check
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          VERSION=$(uv run python -c "
-          import tomllib
-          with open('pyproject.toml', 'rb') as f:
-              print(tomllib.load(f)['project']['version'])
-          ")
+          VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
           HTTP_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/rosetta-llm/$VERSION/json")

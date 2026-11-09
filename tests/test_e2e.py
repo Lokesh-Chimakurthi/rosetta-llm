@@ -386,41 +386,6 @@ def test_auto_mode_review_passthrough_stream_relays_final_delta_verbatim(
     }
 
 
-def test_auto_mode_review_dropped_on_translation_so_claude_code_falls_back(
-    client: TestClient, fake: FakeUpstream
-) -> None:
-    """A non-Anthropic upstream cannot review: the field is withheld and no verdict is invented."""
-    fake.add_json("abc", "POST", "/chat/completions", 200, _CHAT_COMPLETION)
-
-    r = client.post(
-        "/v1/messages",
-        json=_review_request("claude-code/abc/m1"),
-        headers={"anthropic-beta": _REVIEW_BETA},
-    )
-
-    assert "safeguards" not in fake.requests[-1].json()
-    assert r.status_code == 200
-    assert "safeguard_results" not in r.json()
-
-
-def test_auto_mode_review_dropped_on_stream_translation_and_stream_completes(
-    client: TestClient, fake: FakeUpstream
-) -> None:
-    """Claude Code reads a completed stream without verdicts as "not reviewed" and falls back."""
-    fake.add_sse("abc", "/chat/completions", load_fixture("openai_chat", "tool_call"))
-    with client.stream(
-        "POST",
-        "/v1/messages",
-        json=_review_request("claude-code/abc/m1", stream=True),
-        headers={"anthropic-beta": _REVIEW_BETA},
-    ) as r:
-        body = b"".join(r.iter_bytes())
-
-    assert "safeguards" not in fake.requests[-1].json()
-    validate_anthropic_stream(body)
-    assert b"safeguard_results" not in body
-
-
 @pytest.mark.parametrize(
     ("fmt", "path", "fixture", "stop_reason"),
     [

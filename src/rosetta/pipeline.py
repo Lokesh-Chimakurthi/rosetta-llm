@@ -23,6 +23,8 @@ import orjson
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
+from rosetta.auto_mode.classifier import Classifier
+from rosetta.auto_mode.review import Review, requested_session, without_review_request
 from rosetta.codecs.extras import extras_for
 from rosetta.codecs.registry import (
     PARSE_REQUEST,
@@ -33,7 +35,7 @@ from rosetta.codecs.registry import (
     STREAM_RENDER,
     UPSTREAM_PATH,
 )
-from rosetta.config import Config, Format
+from rosetta.config import Config, Format, ProviderConfig
 from rosetta.errors import format_error, format_stream_error
 from rosetta.ir.events import MessageDeltaEvent
 from rosetta.ir.response import StopInfo, Usage
@@ -92,6 +94,22 @@ async def handle(
 
     fwd_headers = _forwarded_headers(request)
 
+    review: Review | None = None
+    if inbound_format == "anthropic" and _rosetta_reviews(provider, inbound_format):
+        session = requested_session(payload)
+        if session is not None:
+            classifier: Classifier | None = request.app.state.classifier
+            if classifier is None:
+                rec.error = "auto_mode_unreviewed"
+                return JSONResponse(
+                    content=format_error(
+                        inbound_format, 400, "invalid_request_error", _unreviewed_message(model_id)
+                    ),
+                    status_code=400,
+                )
+            review = Review(classifier, session)
+            upstream_body, fwd_headers = without_review_request(upstream_body, fwd_headers)
+
     if inbound_format == provider.format:
         return await _passthrough(
             provider_key,
@@ -103,6 +121,7 @@ async def handle(
             upstream,
             fwd_headers,
             status_dict,
+            review,
         )
 
     return await _translate(
@@ -116,6 +135,22 @@ async def handle(
         upstream,
         fwd_headers,
         status_dict,
+        review,
+    )
+
+
+def _rosetta_reviews(provider: ProviderConfig, inbound_format: Format) -> bool:
+    """Whether Rosetta, not the provider, answers Claude Code's auto mode review."""
+    return provider.format != inbound_format or provider.auto_mode_review == "rosetta"
+
+
+def _unreviewed_message(model_id: str) -> str:
+    # Claude Code retries without `safeguards` on a 400 that names the field:
+    # https://code.claude.com/docs/en/llm-gateway-protocol#feature-pass-through
+    return (
+        f"safeguards: Rosetta cannot review auto mode tool calls for '{model_id}' because "
+        "auto_mode.classifier_model is not set in its config; set it, or start Claude Code "
+        "with CLAUDE_CODE_AUTO_MODE_SERVER=0 to use its own classifier"
     )
 
 
@@ -129,6 +164,7 @@ async def _passthrough(
     upstream: UpstreamClient,
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
+    review: Review | None,
 ) -> Response:
     body_bytes = orjson.dumps(body)
     if is_stream:
@@ -142,6 +178,7 @@ async def _passthrough(
                 request,
                 inbound_format,
                 status_dict,
+                review,
             ),
             media_type="text/event-stream",
             headers=_STREAM_HEADERS,
@@ -158,6 +195,15 @@ async def _passthrough(
         )
     if not resp.ok:
         request_log().error = "upstream_status"
+    elif review is not None:
+        try:
+            message = resp.json()
+        except ValueError:
+            message = None
+        if isinstance(message, dict):
+            return JSONResponse(
+                content=await review.stamp_message(message), status_code=resp.status
+            )
     return Response(
         content=resp.body,
         status_code=resp.status,
@@ -205,11 +251,15 @@ async def _passthrough_stream_with_recovery(
     request: Request,
     inbound_format: Format,
     status_dict: dict[str, Any],
+    review: Review | None,
 ) -> AsyncIterator[bytes]:
     rec = request_log()
     try:
         async with upstream.stream(provider_key, upstream_path, body, fwd_headers) as stream:
-            async for chunk in stream.iter_bytes():
+            chunks = stream.iter_bytes()
+            if review is not None:
+                chunks = review.stamp_stream(chunks)
+            async for chunk in chunks:
                 if await request.is_disconnected():
                     rec.client_disconnected = True
                     break
@@ -232,6 +282,7 @@ async def _translate(
     upstream: UpstreamClient,
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
+    review: Review | None,
 ) -> Response:
     try:
         ir = PARSE_REQUEST[inbound_format](payload)
@@ -258,6 +309,7 @@ async def _translate(
                 upstream,
                 fwd_headers,
                 status_dict,
+                review,
             ),
             media_type="text/event-stream",
             headers=_STREAM_HEADERS,
@@ -304,6 +356,8 @@ async def _translate(
             status_code=502,
         )
     _record_usage(request_log(), ir_resp.usage, ir_resp.stop)
+    if review is not None:
+        out = await review.stamp_message(out)
     return JSONResponse(content=out)
 
 
@@ -317,6 +371,7 @@ async def _translate_stream(
     upstream: UpstreamClient,
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
+    review: Review | None,
 ) -> AsyncIterator[bytes]:
     rec = request_log()
     try:
@@ -327,6 +382,8 @@ async def _translate_stream(
             if inbound_format == "anthropic":
                 ir_events = ac_stream.wrap_with_ping(ir_events)
             out_bytes = STREAM_RENDER[inbound_format](ir_events)
+            if review is not None:
+                out_bytes = review.stamp_stream(out_bytes)
 
             async for chunk in out_bytes:
                 if await request.is_disconnected():

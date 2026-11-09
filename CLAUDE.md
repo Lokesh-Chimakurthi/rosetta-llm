@@ -86,7 +86,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 ### Pipeline
 - **Header forwarding**: `anthropic-beta`, `anthropic-version`, `x-claude-code-session-id` extracted from inbound request and forwarded to every upstream call.
 - **Untranslated fields**: top-level request fields a codec doesn't translate land in `raw_extras`, tagged with `raw_extras_format`. `codecs/extras.py::extras_for` is the one rule for what a renderer forwards: everything to the same format, only `_SHARED_FIELDS` (same name and meaning) between Chat and Responses, nothing between Anthropic and either OpenAI format. Strict upstreams reject unknown fields. The pipeline logs dropped names (never values) as `dropped_fields` at debug.
-- **Auto mode review**: passthrough relays Claude Code's `safeguards` request field and the upstream's `safeguard_results` (top-level, or in the final `message_delta.delta`) verbatim, and must never rewrite tool-use ids, because verdicts are keyed by them. On translation `safeguards` is dropped, like every Anthropic-only field (see **Untranslated fields**). Never synthesize `safeguard_results`: a completed response without them is what makes Claude Code fall back to its own classifier requests (model chosen client-side via `CLAUDE_CODE_AUTO_MODE_MODEL`).
+- **Auto mode review**: Claude Code sends `safeguards` (a `dangerous_tool_use` entry with `classifier_context`) plus a `dangerous-tool-use-*` beta, and from 2.1.319 denies any tool call without a verdict in `safeguard_results`; behind a gateway it no longer falls back to its own classifier. `pipeline._rosetta_reviews` is the one rule for who answers. An `anthropic` provider with `auto_mode_review: "upstream"` (the default) gets the request byte for byte, and its `safeguard_results` are relayed verbatim. Every other route gets verdicts from `auto_mode.classifier_model` (`auto_mode/`); `safeguards` and its beta are stripped before forwarding. Without `auto_mode` such a request is a 400 naming `safeguards`, Anthropic's documented gateway refusal. Never rewrite tool-use ids: verdicts are keyed by them. A classifier failure is an `unavailable` verdict, never `not_flagged`. The classifier's prompt is Rosetta's base prompt, then Claude Code's built-in rules (`claude auto-mode defaults`, run at startup), then the operator's `instructions_file`. The rules policy comes from Claude Code; Rosetta owns only the base prompt. The transcript mirrors Claude Code's own classifier: user text and tool calls, never tool results or assistant prose.
 - **Model resolution**: `<provider_key>/<model_name>` split on first `/`. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved.
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
 - **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the `UpstreamClient.stream` context and its connection.
@@ -137,9 +137,11 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
       "extra_headers_env": {},
       "timeout": {"connect": 30, "read": 600},
       "models": [{"id": "model-name", "upstream_name": "...", "supports": {...}, "thinking_budget_default": 12288}],
-      "models_ttl_seconds": 300
+      "models_ttl_seconds": 300,
+      "auto_mode_review": "upstream | rosetta (anthropic format only)"
     }
-  }
+  },
+  "auto_mode": {"classifier_model": "<provider>/<model>", "timeout_seconds": 30, "max_output_tokens": 4096, "builtin_rules": "claude_cli | none", "claude_cli": "claude", "instructions_file": "~/.rosetta-llm/auto-mode.md"}
 }
 ```
 
@@ -153,6 +155,7 @@ Model id format: `<provider_key>/<model_name>` (e.g., `anthropic/claude-opus-4-7
 - `tests/fixtures/sse/<format>/` — upstream SSE fixtures (text, tool_call, reasoning, error_midstream; anthropic also tool_call_safeguards), each opening with a comment naming the documentation it follows.
 - `tests/test_harness.py` — the harness itself: fixtures pass, targeted mutations fail their named rule, passthrough stays byte-identical under any upstream chunking (hypothesis).
 - `tests/test_upstream.py` — `UpstreamClient` contract: error-status streams, capped error body, stream headers, transport-error kinds without host leakage.
-- `tests/test_e2e.py` — FastAPI TestClient + FakeUpstream: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough, auto mode review (passthrough keeps `safeguards`/`safeguard_results`, translation drops `safeguards`).
+- `tests/test_e2e.py` — FastAPI TestClient + FakeUpstream: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough, auto mode passthrough (keeps `safeguards`/`safeguard_results`).
+- `tests/test_auto_mode.py` — Rosetta's auto mode review end to end: verdicts on translated and `auto_mode_review: "rosetta"` responses (JSON and SSE), what the classifier is sent (no tool results or assistant prose), every failure as `unavailable`, truncated tool calls, the unconfigured 400, built-in rules from a fake `claude` executable, setup errors, logging.
 
 Run with: `uv run pytest tests/ -q`.

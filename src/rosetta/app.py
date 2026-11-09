@@ -9,6 +9,7 @@ from fastapi import FastAPI
 
 from rosetta import __version__
 from rosetta.auth import AuthMiddleware, ensure_safe_bind
+from rosetta.auto_mode.classifier import Classifier, describe, prepare
 from rosetta.config import Config
 from rosetta.observability import RequestContextMiddleware, get_logger
 from rosetta.routes.chat_completions import router as chat_router
@@ -52,6 +53,12 @@ async def _models_refresh_loop(app: FastAPI, interval: float) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     config: Config = app.state.config
+    classifier: Classifier | None = app.state.classifier
+    extra: dict[str, object] = (
+        {}
+        if classifier is None
+        else {"auto_mode": describe(classifier.instructions, classifier.route)}
+    )
     get_logger().info(
         "startup",
         version=__version__,
@@ -62,6 +69,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             {"key": key, "format": prov.format, "discover": prov.is_auto_discover}
             for key, prov in config.providers.items()
         ],
+        **extra,
     )
     await app.state.upstream.start()
 
@@ -91,6 +99,9 @@ def create_app(config: Config, *, upstream: UpstreamClient | None = None) -> Fas
     Raises:
         InsecureBindError: `config.host` is not loopback, no API keys are
             configured and `proxy.allow_unauthenticated` is false.
+        AutoModeSetupError: `auto_mode` is set but its classifier cannot be
+            set up; runs the Claude Code CLI when `auto_mode.builtin_rules`
+            is `claude_cli`.
     """
     ensure_safe_bind(config)
     app = FastAPI(
@@ -102,6 +113,16 @@ def create_app(config: Config, *, upstream: UpstreamClient | None = None) -> Fas
     )
     app.state.config = config
     app.state.upstream = upstream if upstream is not None else UpstreamClient(config)
+    app.state.classifier = None
+    if config.auto_mode is not None:
+        instructions, route = prepare(config, config.auto_mode)
+        app.state.classifier = Classifier(
+            instructions=instructions,
+            route=route,
+            upstream=app.state.upstream,
+            timeout_s=config.auto_mode.timeout_seconds,
+            max_output_tokens=config.auto_mode.max_output_tokens,
+        )
     app.state.provider_status = {}
     app.state.model_snapshot = {}
     app.state.model_refresh_lock = asyncio.Lock()

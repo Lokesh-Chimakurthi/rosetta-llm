@@ -109,6 +109,7 @@ python -m rosetta
 - **Passthrough fast path**: zero-overhead when inbound format matches provider's native format
 - **Canonical IR translation**: lossless cross-format translation including thinking blocks, tool calls, and reasoning
 - **Claude Code gateway**: full model picker integration — non-Anthropic models appear in `/model` via `claude-code/` prefixing
+- **Auto mode on any model**: a classifier model from your config reviews Claude Code's tool calls for providers that cannot
 - **Provider routing**: `<provider>/<model>` prefix scheme (e.g., `anthropic/claude-opus-4-7`)
 - **Safe by default**: binds loopback; refuses unauthenticated non-loopback binds; `Bearer` or `x-api-key` proxy keys
 - **Structured JSON logging**: request-scoped with configurable log levels
@@ -177,27 +178,71 @@ Rosetta forwards Claude Code's session headers (`anthropic-beta`, `anthropic-ver
 
 ### Auto mode classifier
 
-In [auto mode](https://code.claude.com/docs/en/permission-modes#server-side-classifier-review), Claude Code asks the server to review tool calls by sending a `safeguards` request field with a `dangerous-tool-use-*` `anthropic-beta` value. The verdicts come back as `safeguard_results`: at the top level of a non-streaming response, and in the `delta` of the final `message_delta` event when streaming. What Rosetta does depends on the provider the model routes to:
+In [auto mode](https://code.claude.com/docs/en/permission-modes#server-side-classifier-review), Claude Code asks for a review of every tool call it is about to run: it sends a `safeguards` request field with a `dangerous-tool-use-*` `anthropic-beta` value, and reads the verdicts from `safeguard_results` (at the top level of a response, or in the `delta` of a stream's final `message_delta`). From Claude Code 2.1.319, a call without a verdict is denied: behind a gateway it no longer falls back to its own classifier ([changelog](https://code.claude.com/docs/en/changelog)). Who reviews depends on the provider:
 
-| Provider format | What Rosetta does | Who reviews tool calls |
+| Provider | Who reviews | What Rosetta does |
 | --- | --- | --- |
-| `anthropic` (passthrough) | Forwards `safeguards`, the beta value and `safeguard_results` byte for byte, and never rewrites tool-use ids | The Anthropic API, as part of the same request |
-| `openai_chat`, `openai_responses` (translated) | Drops `safeguards`, like every field only Anthropic defines, before rendering the upstream request, so the response carries no `safeguard_results` | Claude Code's own classifier requests, which also go through Rosetta |
+| `anthropic` with `auto_mode_review: "upstream"` (the default) | The provider, as the Anthropic API does | Forwards `safeguards`, the beta value and `safeguard_results` byte for byte, and never rewrites tool-use ids |
+| `anthropic` with `auto_mode_review: "rosetta"` | `auto_mode.classifier_model` | Strips `safeguards` and its beta value before forwarding, then adds the verdicts; every other event passes through byte for byte |
+| `openai_chat`, `openai_responses` | `auto_mode.classifier_model` | Translates as usual, then adds the verdicts |
 
-Translated providers can't review tool calls, so Rosetta sends no verdicts rather than invent any. Claude Code reads a completed response with no verdicts as "this server doesn't review" and switches to its own classifier requests. Rosetta has no classifier setting; you choose the classifier model in Claude Code's settings. Set `CLAUDE_CODE_AUTO_MODE_MODEL` (Claude Code v2.1.302 or later) to a Rosetta model id. Claude Code's default classifier model, `claude-sonnet-5`, has no `<provider>/` prefix, so Rosetta can't route it.
+Set `auto_mode.classifier_model` to any model in your config:
 
 ```json
 {
-  "env": {
-    "ANTHROPIC_BASE_URL": "http://localhost:7860",
-    "CLAUDE_CODE_AUTO_MODE_MODEL": "openai/gpt-5.4"
+  "auto_mode": {
+    "classifier_model": "octo/qwen38-flash-next",
+    "instructions_file": "~/.rosetta-llm/auto-mode.md"
   }
 }
 ```
 
-On older Claude Code versions, set `ANTHROPIC_DEFAULT_SONNET_MODEL` to a Rosetta model id instead. That also changes which model the Sonnet alias picks. Claude Code's own classifier requests leave out tool results, so text in a file or a web page can't steer the verdict. Each classifier request is billed by the provider that serves it.
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `classifier_model` | required | The reviewing model, `<provider>/<model>` |
+| `timeout_seconds` | `30` | Wait for a verdict, then deny the call |
+| `max_output_tokens` | `4096` | Cap on the classifier's reply |
+| `builtin_rules` | `claude_cli` | `claude_cli` loads Claude Code's built-in rules at startup; `none` uses only the user's rules and your instructions |
+| `claude_cli` | `claude` | The Claude Code executable `builtin_rules` runs |
+| `instructions_file` | none | A Markdown file of your own instructions, added to the classifier's prompt |
 
-Some third-party providers speak the `anthropic` format but reject unknown request fields. If yours answers `safeguards` with a `400`, set `CLAUDE_CODE_AUTO_MODE_SERVER=0` in Claude Code to stop sending the field. A provider that ignores the field needs no change: Claude Code falls back on its own.
+Without `auto_mode`, a request Rosetta would have to review gets `400 invalid_request_error` naming `safeguards`, as [Anthropic's gateway guide](https://code.claude.com/docs/en/llm-gateway-protocol#feature-pass-through) specifies. Claude Code then stops asking for the review in that session and denies the calls, unless it was started with `CLAUDE_CODE_AUTO_MODE_SERVER=0` to use its own classifier.
+
+**What the classifier is told.** The system prompt is built once at startup, from three parts in this order:
+
+1. Rosetta's short base prompt: the classifier's role, how each rule section applies, and the reply format.
+2. Claude Code's built-in rules (`hard_deny`, `soft_deny`, `allow`, `environment`), as `claude auto-mode defaults` prints them.
+3. Your `instructions_file`.
+
+Claude Code's own classifier prompt is not included. The CLI has no command that prints it, and Claude Code does not send it with review requests.
+
+Each review then sends one user message:
+
+- `classifier_context`, exactly as Claude Code sent it: permission mode, platform, directories, permission rules, your `autoMode` settings, git state and user identity.
+- The rules that apply, section by section. Your `autoMode` lists are merged with the built-in ones the way [Claude Code merges them](https://code.claude.com/docs/en/auto-mode-config#override-the-block-and-allow-rules): an empty list keeps the built-in rules, a list containing `"$defaults"` adds to them, and any other list replaces them.
+- The transcript, built the way Claude Code builds its own classifier requests: user text (including CLAUDE.md and the other context Claude Code attaches to user turns) and earlier tool calls. Tool results, assistant prose and thinking are never sent.
+- The tool calls to judge.
+
+Nothing is trimmed.
+
+**Verdicts.** Each tool call gets one of:
+
+- `not_flagged`
+- `flagged`, with an explanation that Claude Code shows as the reason for the denial
+- `unavailable`, with one of these reasons:
+  - `timeout`: no answer within `timeout_seconds`.
+  - `input_too_long`: the provider answered 413 or `context_length_exceeded`.
+  - `refused`: the classifier model refused to answer.
+  - `truncated`: the tool call was cut off by `max_tokens`, or the stream ended mid-call. Such a call is never sent to the classifier.
+  - `error`: any other failure, such as a provider error, a reply that is not the expected JSON, or a missing verdict.
+
+Claude Code denies every `unavailable` call; nothing defaults to allowed. A response without tool calls gets an empty verdict set and costs no classifier call.
+
+**Cost and latency.** Each response that contains tool calls makes one classifier request, billed by the classifier's provider. A stream holds its final `message_delta` until the classifier answers, sending a `ping` every 15 s in the meantime.
+
+**Data.** With `auto_mode` on, the transcript (your messages, CLAUDE.md and tool call inputs) and `classifier_context` (including your home directory, user identity and git remotes) go to the classifier's provider. Pick that provider as you would for the conversation itself.
+
+**Startup.** With `builtin_rules: "claude_cli"`, every start runs `claude auto-mode defaults` and `claude --version`, so the rules follow the Claude Code installed on the machine running Rosetta. That version can differ from your clients' versions. If the command fails, Rosetta refuses to start (exit status 2) and says why, as it does for an unreadable `instructions_file`. The Docker image does not include Claude Code: set `builtin_rules` to `none` there, or install Claude Code in a derived image. `rosetta-llm check` sets the classifier up the same way and prints a summary.
 
 ## Translation Matrix
 
@@ -265,10 +310,11 @@ Precedence for each: flag > config > default. `log_headers` and `log_bodies` onl
 {"ts":"2026-09-30T13:31:17.661Z","level":"info","event":"request_started","request_id":"b4f81a35294d4639","path":"/v1/messages","model":"octo/deepseek-v4.1-flash","route":"translate","stream":true}
 ```
 
-- `startup` — once at boot; providers carry `key`, `format`, `discover` (no URLs or secrets).
+- `startup` — once at boot; providers carry `key`, `format`, `discover` (no URLs or secrets). With `auto_mode`, `auto_mode` carries `classifier_model`, `builtin_rules` (the Claude Code version and the rule count per section, or `null`) and `instructions_file`.
 - `request_started` — once per request, when the model is resolved (or when the response starts for requests that are not model calls): `path`, and when known `model`, `route` (`passthrough` or `translate`), `stream`.
 - `models_refreshed` — after each model-list refresh: `total`, `elapsed_ms`.
 - `translation_failed` — `error` level, when a request or response cannot be translated: `direction`, `error`. The traceback is added at `debug`.
+- `auto_mode_review_failed` — `warning` level, when the classifier gives no usable verdict: `reason` (`timeout`, `input_too_long`, `refused` or `error`), `classifier_model`, `tool_calls`, and `upstream_status` or `missing_verdicts` when they apply. No prompt or tool input is logged.
 
 With `log_completed`, each request also logs `request_completed` — at `info` for 2xx/3xx, `warning` for 4xx, `error` for 5xx — when the response finishes, the client disconnects, or the app raises:
 
@@ -282,9 +328,11 @@ With `log_completed`, each request also logs `request_completed` — at `info` f
 | `status`, `duration_ms` | Status sent and total time |
 | `ttft_ms` | Streams only: time to the first bytes sent |
 | `input_tokens`, `output_tokens`, `stop_reason` | Translated responses only, from the upstream usage and stop reason |
-| `error` | `invalid_request`, `upstream_connect`, `upstream_timeout`, `upstream_protocol`, `upstream_status`, `translation_error`, or the exception class name |
+| `error` | `invalid_request`, `auto_mode_unreviewed`, `upstream_connect`, `upstream_timeout`, `upstream_protocol`, `upstream_status`, `translation_error`, or the exception class name |
 | `upstream_status` | With `error`, the status the provider returned |
 | `client_disconnected` | `true` when the client left before the response finished |
+| `auto_mode_review` | When Rosetta reviewed for auto mode: `reviewed`, `unavailable` (a call got no verdict) or `no_tool_calls` |
+| `auto_mode_flagged`, `auto_mode_review_ms` | With a review of tool calls: how many were flagged, and how long the review took |
 
 ### Debug
 

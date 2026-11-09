@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field, model_validator
 
 Format = Literal["openai_chat", "openai_responses", "anthropic"]
 LogLevel = Literal["debug", "info", "warning", "error"]
+# Who answers Claude Code's auto mode review for an `anthropic` provider.
+AutoModeReview = Literal["upstream", "rosetta"]
 
 
 class Capabilities(BaseModel):
@@ -51,6 +53,18 @@ class ProviderConfig(BaseModel):
     timeout: TimeoutConfig = Field(default_factory=TimeoutConfig)
     models: list[ModelConfig | Literal["*"]] = Field(default_factory=list)
     models_ttl_seconds: int = 300
+    # `rosetta` for Anthropic-format providers that cannot review tool calls
+    # themselves; other formats are always reviewed by Rosetta.
+    auto_mode_review: AutoModeReview = "upstream"
+
+    @model_validator(mode="after")
+    def check_auto_mode_review(self) -> ProviderConfig:
+        if self.auto_mode_review == "rosetta" and self.format != "anthropic":
+            raise ValueError(
+                "auto_mode_review applies only to 'anthropic' providers; "
+                "Rosetta always reviews tool calls for other formats"
+            )
+        return self
 
     @model_validator(mode="after")
     def resolve_api_key(self) -> ProviderConfig:
@@ -107,6 +121,17 @@ class ProxyConfig(BaseModel):
     forwarded_allow_ips: str = "127.0.0.1"
 
 
+class AutoModeConfig(BaseModel):
+    """How Rosetta answers Claude Code's auto mode review (`safeguards`)."""
+
+    classifier_model: str = Field(min_length=1)
+    timeout_seconds: float = Field(default=30.0, gt=0, le=600)
+    max_output_tokens: int = Field(default=4096, ge=1)
+    builtin_rules: Literal["claude_cli", "none"] = "claude_cli"
+    claude_cli: str = Field(default="claude", min_length=1)
+    instructions_file: str | None = None
+
+
 class Config(BaseModel):
     host: str = "127.0.0.1"
     port: int = 7860
@@ -121,6 +146,7 @@ class Config(BaseModel):
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     # Provider for bare model names; must be a key under `providers`.
     default_provider: str | None = None
+    auto_mode: AutoModeConfig | None = None
 
     @model_validator(mode="after")
     def validate_providers(self) -> Config:
@@ -131,6 +157,13 @@ class Config(BaseModel):
             raise ValueError(
                 f"default_provider '{self.default_provider}' is not declared in providers"
             )
+        if self.auto_mode is None:
+            reviewing = [k for k, p in self.providers.items() if p.auto_mode_review == "rosetta"]
+            if reviewing:
+                raise ValueError(
+                    f"providers {reviewing} set auto_mode_review to 'rosetta', "
+                    "which needs auto_mode.classifier_model"
+                )
         return self
 
 

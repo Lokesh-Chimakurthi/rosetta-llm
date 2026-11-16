@@ -100,6 +100,7 @@
       "timeout": { "connect": 30, "read": 600 },
 
       // Models. Either an explicit list OR ["*"] to auto-discover via upstream /v1/models.
+      // Entries beside "*" configure discovered models without adding to the list.
       // Auto-discover caches results for models_ttl_seconds (default 300).
       "models": [
         {
@@ -115,11 +116,14 @@
           },
           // Optional default reasoning budget when target uses budget instead of effort
           "thinking_budget_default": 12288,
-          // openai_chat only: forward prompt-cache breakpoints as `cache_control`
-          // (LiteLLM/OpenRouter extension for Anthropic-backed models). Default false.
+          // openai_chat only: overrides the provider's forward_cache_control.
           "forward_cache_control": false
         }
       ],
+      // openai_chat only: send prompt-cache breakpoints as `cache_control`
+      // (LiteLLM/OpenRouter extension for Anthropic-backed models). Default true;
+      // set false, or false on a model, where the upstream rejects the field.
+      "forward_cache_control": true,
       "models_ttl_seconds": 300
     },
 

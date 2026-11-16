@@ -495,26 +495,30 @@ _CACHED_MESSAGES: dict[str, Any] = {
 }
 
 
-def _chat_body_for(model: str) -> dict[str, Any]:
-    config: dict[str, Any] = {
+def _gateway_config(**provider: Any) -> dict[str, Any]:
+    return {
         "providers": {
             "gw": {
                 "format": "openai_chat",
                 "base_url": "https://gw.test/v1",
                 "api_key": "sk-up",
-                "models": [{"id": "claude-haiku", "forward_cache_control": True}, {"id": "plain"}],
+                "models": ["*", {"id": "gemini", "forward_cache_control": False}],
+                **provider,
             }
         }
     }
+
+
+def _chat_body_for(model: str, **provider: Any) -> dict[str, Any]:
     fake = FakeUpstream()
     fake.add_json("gw", "POST", "/chat/completions", 200, _CHAT_COMPLETION)
-    with build_client(config, fake) as client:
+    with build_client(_gateway_config(**provider), fake) as client:
         r = client.post("/v1/messages", json={**_CACHED_MESSAGES, "model": f"gw/{model}"})
     assert r.status_code == 200
     return fake.requests[-1].json()
 
 
-def test_breakpoints_reach_a_chat_model_that_opted_in() -> None:
+def test_breakpoints_reach_chat_models_by_default() -> None:
     sent = _chat_body_for("claude-haiku")
 
     system, user, assistant, tool, user_text = sent["messages"]
@@ -539,8 +543,25 @@ def test_breakpoints_reach_a_chat_model_that_opted_in() -> None:
     assert sent["tools"][0]["cache_control"] == _EPHEMERAL
 
 
-def test_breakpoints_never_reach_a_chat_model_that_did_not_opt_in() -> None:
-    sent = _chat_body_for("plain")
+@pytest.mark.parametrize(
+    ("model", "provider"),
+    [
+        pytest.param("gemini", {}, id="model-opted-out"),
+        pytest.param("claude-haiku", {"forward_cache_control": False}, id="provider-opted-out"),
+        pytest.param(
+            "gemini",
+            {
+                "forward_cache_control": True,
+                "models": [{"id": "gemini", "forward_cache_control": False}],
+            },
+            id="model-overrides-provider",
+        ),
+    ],
+)
+def test_breakpoints_never_reach_an_opted_out_chat_model(
+    model: str, provider: dict[str, Any]
+) -> None:
+    sent = _chat_body_for(model, **provider)
 
     assert "cache_control" not in json.dumps(sent)
     assert sent["messages"][0] == {
@@ -548,6 +569,15 @@ def test_breakpoints_never_reach_a_chat_model_that_did_not_opt_in() -> None:
         "content": "billing header\n\nYou are Claude Code.",
     }
     assert sent["messages"][3]["content"] == "contents"
+
+
+def test_model_entries_beside_wildcard_keep_discovery() -> None:
+    fake = FakeUpstream()
+    discovered = {"data": [{"id": "claude-haiku"}, {"id": "gemini"}]}
+    fake.add_json("gw", "GET", "/models", 200, discovered)
+    with build_client(_gateway_config(), fake) as client:
+        ids = sorted(m["id"] for m in client.get("/v1/models").json()["data"])
+    assert ids == ["gw/claude-haiku", "gw/gemini"]
 
 
 def test_anthropic_json_translation_reports_uncached_input_tokens(

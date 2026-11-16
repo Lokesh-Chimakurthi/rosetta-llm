@@ -81,7 +81,15 @@ def test_extra_headers_env_value_hidden_from_error_message(
 
 
 @pytest.mark.parametrize("fmt", ["anthropic", "openai_responses"])
-def test_forward_cache_control_rejected_outside_openai_chat(fmt: str) -> None:
-    models = [{"id": "m1", "forward_cache_control": False}]
-    with pytest.raises(ValidationError, match=r"\['m1'\].*only to 'openai_chat'"):
-        ProviderConfig.model_validate(_base_provider(format=fmt, models=models))
+@pytest.mark.parametrize(
+    ("overrides", "where"),
+    [
+        ({"forward_cache_control": True}, "the provider"),
+        ({"models": [{"id": "m1", "forward_cache_control": False}]}, "m1"),
+    ],
+)
+def test_forward_cache_control_rejected_outside_openai_chat(
+    fmt: str, overrides: dict[str, object], where: str
+) -> None:
+    with pytest.raises(ValidationError, match=rf"set on {where}, but it applies only"):
+        ProviderConfig.model_validate(_base_provider(format=fmt, **overrides))

@@ -24,14 +24,17 @@ class Route:
     def forwards_cache_control(self) -> bool:
         """Whether translated requests keep their prompt-cache breakpoints.
 
-        Native to Anthropic; on `openai_chat` only for a listed model that sets
-        `forward_cache_control`; never on `openai_responses`, which has no field.
+        Native to Anthropic; on `openai_chat` per the model entry's
+        `forward_cache_control`, else the provider's (default on); never on
+        `openai_responses`, which has no field.
         """
         match self.provider.format:
             case "anthropic":
                 return True
             case "openai_chat":
-                return self.model is not None and self.model.forward_cache_control
+                if self.model is not None and self.model.forward_cache_control is not None:
+                    return self.model.forward_cache_control
+                return self.provider.forward_cache_control
             case "openai_responses":
                 return False
             case unreachable:

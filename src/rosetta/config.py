@@ -32,11 +32,8 @@ class ModelConfig(BaseModel):
     upstream_name: str | None = None
     supports: Capabilities = Field(default_factory=Capabilities)
     thinking_budget_default: int = 12288
-    # `openai_chat` only: send prompt-cache breakpoints as `cache_control`, an
-    # extension LiteLLM and OpenRouter accept for Anthropic-backed models.
-    # Off by default: strict servers reject the unknown field, and LiteLLM's
-    # Gemini route fails when it is sent.
-    forward_cache_control: bool = False
+    # `openai_chat` only; None inherits the provider's `forward_cache_control`.
+    forward_cache_control: bool | None = None
 
     @property
     def effective_upstream_name(self) -> str:
@@ -56,8 +53,15 @@ class ProviderConfig(BaseModel):
     extra_headers: dict[str, str] = Field(default_factory=dict)
     extra_headers_env: dict[str, str] = Field(default_factory=dict)
     timeout: TimeoutConfig = Field(default_factory=TimeoutConfig)
+    # "*" discovers models from the upstream; entries beside it configure
+    # discovered models without adding to the list.
     models: list[ModelConfig | Literal["*"]] = Field(default_factory=list)
     models_ttl_seconds: int = 300
+    # `openai_chat` only: send prompt-cache breakpoints as `cache_control`, the
+    # extension LiteLLM and OpenRouter accept for Anthropic-backed models.
+    # Opt a model out where its upstream rejects the field (strict Chat
+    # servers) or fails on it (LiteLLM's Gemini route answers 404).
+    forward_cache_control: bool = True
     # `rosetta` for Anthropic-format providers that cannot review tool calls
     # themselves; other formats are always reviewed by Rosetta.
     auto_mode_review: AutoModeReview = "upstream"
@@ -75,11 +79,13 @@ class ProviderConfig(BaseModel):
     def check_forward_cache_control(self) -> ProviderConfig:
         if self.format == "openai_chat":
             return self
-        named = [m.id for m in self.static_models if "forward_cache_control" in m.model_fields_set]
-        if named:
+        where = [m.id for m in self.static_models if m.forward_cache_control is not None]
+        if "forward_cache_control" in self.model_fields_set:
+            where.insert(0, "the provider")
+        if where:
             raise ValueError(
-                f"models {named} set forward_cache_control, which applies only to "
-                "'openai_chat' providers; remove it (anthropic providers always forward "
+                f"forward_cache_control is set on {', '.join(where)}, but it applies only "
+                "to 'openai_chat' providers; remove it (anthropic providers always forward "
                 "cache_control, openai_responses has no such field)"
             )
         return self
@@ -123,7 +129,7 @@ class ProviderConfig(BaseModel):
 
     @property
     def is_auto_discover(self) -> bool:
-        return len(self.models) == 1 and self.models[0] == "*"
+        return "*" in self.models
 
     @property
     def static_models(self) -> list[ModelConfig]:

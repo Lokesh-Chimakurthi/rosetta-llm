@@ -178,11 +178,24 @@ Rosetta forwards Claude Code's session headers (`anthropic-beta`, `anthropic-ver
 
 ### Prompt caching
 
-Claude Code marks what to cache with `cache_control` breakpoints. An `anthropic` provider receives them unchanged. Chat Completions defines no such field, so Rosetta removes them before calling an `openai_chat` model unless that model sets `"forward_cache_control": true` in `models`. With it set, breakpoints are sent as `cache_control` on system and message content parts, tool-message content, `tool_calls` entries and tool definitions: the extension [LiteLLM](https://docs.litellm.ai/docs/completion/prompt_caching) and [OpenRouter](https://openrouter.ai/docs/guides/best-practices/prompt-caching) accept for Anthropic-backed models.
+Claude Code marks what to cache with `cache_control` breakpoints. An `anthropic` provider receives them unchanged. For an `openai_chat` provider Rosetta sends them as `cache_control` on system and message content parts, tool-message content, `tool_calls` entries and tool definitions: the extension [LiteLLM](https://docs.litellm.ai/docs/completion/prompt_caching) and [OpenRouter](https://openrouter.ai/docs/guides/best-practices/prompt-caching) accept for Anthropic-backed models. Chat Completions itself defines no such field.
 
-- Set it only on models whose upstream honours it: strict Chat servers reject the unknown field, and LiteLLM's Gemini route fails when it is present.
-- Only listed models can set it; a provider with `"models": ["*"]` never forwards breakpoints.
-- `openai_responses` providers never receive breakpoints.
+Forwarding is on by default. Turn it off where the upstream rejects the field (strict Chat servers) or fails on it (LiteLLM's Gemini route answers 404 for large prompts):
+
+```jsonc
+"gateway": {
+  "format": "openai_chat",
+  "forward_cache_control": true,          // provider default; true when omitted
+  "models": [
+    "*",                                  // keep discovering models
+    { "id": "light", "forward_cache_control": false }
+  ]
+}
+```
+
+- A model entry's `forward_cache_control` overrides the provider's.
+- Entries next to `"*"` configure discovered models without adding to the list `/v1/models` returns.
+- `openai_responses` providers never receive breakpoints; setting `forward_cache_control` on them or on `anthropic` providers is a config error.
 - A gateway that also serves the Messages API (LiteLLM does at `/v1/messages`) can instead be configured as an `anthropic` provider, which forwards Claude Code's requests unchanged.
 - A removed breakpoint appears as `cache_control` in `dropped_fields` (see [Logging](#logging)); `cache_read_tokens` and `cache_creation_tokens` show whether the upstream cached.
 

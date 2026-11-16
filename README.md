@@ -210,7 +210,7 @@ Without `auto_mode`, a request Rosetta would have to review gets `400 invalid_re
 
 **What the classifier is told.** The system prompt is built once at startup, from three parts in this order:
 
-1. Rosetta's short base prompt: the classifier's role, how each rule section applies, and the reply format.
+1. Rosetta's short base prompt: the classifier's role, how each rule section applies, and how to answer.
 2. Claude Code's built-in rules (`hard_deny`, `soft_deny`, `allow`, `environment`), as `claude auto-mode defaults` prints them.
 3. Your `instructions_file`.
 
@@ -225,6 +225,8 @@ Each review then sends one user message:
 
 Nothing is trimmed.
 
+**Reply.** The classifier answers by calling a `submit_verdicts` tool, which the request forces with `tool_choice`: one entry per tool call with its `id`, `flagged` and `explanation`. The tool is declared `strict`, so providers that constrain tool arguments to the schema cannot return malformed verdicts. Only that tool call is read: a reply without it is an `error`, even when its text holds the verdicts. The classifier model must support tool calling with a forced tool choice.
+
 **Verdicts.** Each tool call gets one of:
 
 - `not_flagged`
@@ -234,7 +236,7 @@ Nothing is trimmed.
   - `input_too_long`: the provider answered 413 or `context_length_exceeded`.
   - `refused`: the classifier model refused to answer.
   - `truncated`: the tool call was cut off by `max_tokens`, or the stream ended mid-call. Such a call is never sent to the classifier.
-  - `error`: any other failure, such as a provider error, a reply that is not the expected JSON, or a missing verdict.
+  - `error`: any other failure, such as a provider error, a reply without a valid `submit_verdicts` call, a missing verdict, or an id given two different verdicts.
 
 Claude Code denies every `unavailable` call; nothing defaults to allowed. A response without tool calls gets an empty verdict set and costs no classifier call.
 
@@ -314,7 +316,7 @@ Precedence for each: flag > config > default. `log_headers` and `log_bodies` onl
 - `request_started` — once per request, when the model is resolved (or when the response starts for requests that are not model calls): `path`, and when known `model`, `route` (`passthrough` or `translate`), `stream`.
 - `models_refreshed` — after each model-list refresh: `total`, `elapsed_ms`.
 - `translation_failed` — `error` level, when a request or response cannot be translated: `direction`, `error`. The traceback is added at `debug`.
-- `auto_mode_review_failed` — `warning` level, when the classifier gives no usable verdict: `reason` (`timeout`, `input_too_long`, `refused` or `error`), `classifier_model`, `tool_calls`, and `upstream_status` or `missing_verdicts` when they apply. No prompt or tool input is logged.
+- `auto_mode_review_failed` — `warning` level, when the classifier gives no usable verdict: `reason` (`timeout`, `input_too_long`, `refused` or `error`), `classifier_model`, `tool_calls`, and when they apply: `upstream_status`, `missing_verdicts`, `reply_fault` (why a successful reply held no verdicts: `unreadable_reply`, `no_verdict_tool_call` or `invalid_verdict_arguments`) and the reply's `stop_reason`. No prompt or tool input is logged.
 
 With `log_completed`, each request also logs `request_completed` — at `info` for 2xx/3xx, `warning` for 4xx, `error` for 5xx — when the response finishes, the client disconnects, or the app raises:
 

@@ -2,14 +2,15 @@
 
 The classifier is called like any upstream: the request is built as IR and
 rendered by the classifier provider's codec, so every provider format works.
-Every failure becomes an `Unavailable` verdict, which Claude Code answers by
-denying the call; nothing defaults to allowed.
+The verdicts come back as the arguments of a forced `submit_verdicts` tool
+call, never as free text. Every failure becomes an `Unavailable` verdict,
+which Claude Code answers by denying the call; nothing defaults to allowed.
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -17,6 +18,7 @@ import orjson
 from pydantic import BaseModel, StrictBool, ValidationError
 
 from rosetta.auto_mode.instructions import (
+    VERDICT_TOOL,
     AutoModeSetupError,
     Instructions,
     load_instructions,
@@ -24,12 +26,21 @@ from rosetta.auto_mode.instructions import (
 )
 from rosetta.codecs.registry import PARSE_RESPONSE, RENDER_REQUEST, UPSTREAM_PATH
 from rosetta.config import AutoModeConfig, Config, Format
-from rosetta.ir.request import CanonicalRequest, Message, RefusalPart, TextPart
+from rosetta.ir.request import (
+    CanonicalRequest,
+    Message,
+    RefusalPart,
+    TextPart,
+    Tool,
+    ToolCallPart,
+)
 from rosetta.observability import get_logger, sub_request_log
 from rosetta.routing import resolve_model
 from rosetta.upstream import UpstreamClient, UpstreamError, UpstreamResponse
 
 type UnavailableReason = Literal["timeout", "error", "refused", "input_too_long", "truncated"]
+# Why a 200 reply held no usable verdict; logged, never sent to Claude Code.
+type ReplyFault = Literal["unreadable_reply", "no_verdict_tool_call", "invalid_verdict_arguments"]
 
 # A flagged verdict needs an explanation on the wire; Claude Code shows it as the reason.
 _NO_EXPLANATION = (
@@ -83,13 +94,54 @@ class ClassifierRoute:
     upstream_model: str
 
 
+# Static, so the tool definition never breaks the prompt-cache prefix: tools
+# precede the system prompt. Strict-mode shape (every property required, no
+# extra properties) for providers that constrain decoding to it.
+_VERDICT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "verdicts": {
+            "type": "array",
+            "description": "Exactly one verdict for every tool call in <tool_calls>.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "The tool call's id."},
+                    "flagged": {"type": "boolean", "description": "true blocks the call."},
+                    "explanation": {
+                        "type": "string",
+                        "description": "When flagged: [<rule name>] and one sentence on what "
+                        "the call does and why it is blocked. Otherwise empty.",
+                    },
+                },
+                "required": ["id", "flagged", "explanation"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["verdicts"],
+    "additionalProperties": False,
+}
+_TOOLS = [
+    Tool(
+        name=VERDICT_TOOL,
+        description="Submit the verdict for every pending tool call.",
+        input_schema=_VERDICT_SCHEMA,
+        strict=True,
+    )
+]
+# Each codec renders this as its format's "call exactly this tool".
+_TOOL_CHOICE = {"type": "tool", "name": VERDICT_TOOL}
+
+
 class _ReplyVerdict(BaseModel):
+    id: str
     flagged: StrictBool
     explanation: str = ""
 
 
 class _Reply(BaseModel):
-    verdicts: dict[str, Any]
+    verdicts: list[Any]
 
 
 def prepare(config: Config, auto_mode: AutoModeConfig) -> tuple[Instructions, ClassifierRoute]:
@@ -178,6 +230,8 @@ class Classifier:
             model=self.route.upstream_model,
             system=self.instructions.system_prompt,
             messages=[Message(role="user", parts=[TextPart(text=text)])],
+            tools=_TOOLS,
+            tool_choice=_TOOL_CHOICE,
             max_output_tokens=self._max_output_tokens,
         )
 
@@ -185,14 +239,20 @@ class Classifier:
         try:
             parsed = PARSE_RESPONSE[self.route.provider_format](resp.json())
         except Exception:  # noqa: BLE001 - an unreadable classifier reply is a verdict-less call, logged
-            return self._failed(calls, "error")
+            return self._failed(calls, "error", fault="unreadable_reply")
         parts = [p for m in parsed.output_messages for p in m.parts]
-        if any(isinstance(p, RefusalPart) for p in parts) or parsed.stop.normalized == "refusal":
+        stop = parsed.stop.normalized
+        if any(isinstance(p, RefusalPart) for p in parts) or stop == "refusal":
             return self._failed(calls, "refused")
-        reply = _parse_reply("".join(p.text for p in parts if isinstance(p, TextPart)))
-        if reply is None:
-            return self._failed(calls, "error")
-        verdicts = {c.id: _verdict(reply.verdicts.get(c.id)) for c in calls}
+        submitted = [p for p in parts if isinstance(p, ToolCallPart) and p.name == VERDICT_TOOL]
+        if not submitted:
+            return self._failed(calls, "error", fault="no_verdict_tool_call", stop_reason=stop)
+        given = _submitted_verdicts(p.arguments_json_text for p in submitted)
+        if given is None:
+            return self._failed(
+                calls, "error", fault="invalid_verdict_arguments", stop_reason=stop
+            )
+        verdicts: dict[str, Verdict] = {c.id: given.get(c.id, Unavailable("error")) for c in calls}
         missing = sum(isinstance(v, Unavailable) for v in verdicts.values())
         if missing:
             self._log_failure("error", len(calls), missing=missing)
@@ -204,8 +264,16 @@ class Classifier:
         reason: UnavailableReason,
         *,
         upstream_status: int | None = None,
+        fault: ReplyFault | None = None,
+        stop_reason: str | None = None,
     ) -> dict[str, Verdict]:
-        self._log_failure(reason, len(calls), upstream_status=upstream_status)
+        self._log_failure(
+            reason,
+            len(calls),
+            upstream_status=upstream_status,
+            fault=fault,
+            stop_reason=stop_reason,
+        )
         return {c.id: Unavailable(reason) for c in calls}
 
     def _log_failure(
@@ -215,6 +283,8 @@ class Classifier:
         *,
         missing: int | None = None,
         upstream_status: int | None = None,
+        fault: ReplyFault | None = None,
+        stop_reason: str | None = None,
     ) -> None:
         event: dict[str, Any] = {
             "reason": reason,
@@ -225,6 +295,10 @@ class Classifier:
             event["missing_verdicts"] = missing
         if upstream_status is not None:
             event["upstream_status"] = upstream_status
+        if fault is not None:
+            event["reply_fault"] = fault
+        if stop_reason:
+            event["stop_reason"] = stop_reason
         get_logger().warning("auto_mode_review_failed", **event)
 
 
@@ -260,24 +334,30 @@ def _json(value: Any) -> str:
     return orjson.dumps(value, default=str).decode()
 
 
-def _parse_reply(text: str) -> _Reply | None:
-    start, end = text.find("{"), text.rfind("}")
-    if start < 0 or end <= start:
-        return None
-    try:
-        return _Reply.model_validate_json(text[start : end + 1])
-    except ValidationError:
-        return None
+def _submitted_verdicts(arguments: Iterable[str]) -> dict[str, Verdict] | None:
+    """Verdicts by tool call id; None when any submission is not the tool's shape.
 
-
-def _verdict(raw: Any) -> Verdict:
-    if raw is None:
-        return Unavailable("error")
-    try:
-        verdict = _ReplyVerdict.model_validate(raw)
-    except ValidationError:
-        return Unavailable("error")
-    return Evaluated(verdict.flagged, verdict.explanation)
+    A malformed entry gives no verdict for its id. An id given two different
+    verdicts gets none: picking one could turn a block into an allow.
+    """
+    verdicts: dict[str, Verdict] = {}
+    conflicting: set[str] = set()
+    for text in arguments:
+        try:
+            reply = _Reply.model_validate_json(text)
+        except ValidationError:
+            return None
+        for raw in reply.verdicts:
+            try:
+                item = _ReplyVerdict.model_validate(raw)
+            except ValidationError:
+                continue
+            verdict = Evaluated(item.flagged, item.explanation)
+            if verdicts.setdefault(item.id, verdict) != verdict:
+                conflicting.add(item.id)
+    for call_id in conflicting:
+        verdicts[call_id] = Unavailable("error")
+    return verdicts
 
 
 def _status_reason(resp: UpstreamResponse) -> UnavailableReason:

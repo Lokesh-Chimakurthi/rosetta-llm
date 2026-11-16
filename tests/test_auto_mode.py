@@ -133,24 +133,29 @@ def _chat_tool_call(finish_reason: str = "tool_calls") -> dict[str, Any]:
     }
 
 
-def _classifier_reply(content: str, finish_reason: str = "stop") -> dict[str, Any]:
+def _classifier_message(message: dict[str, Any], finish_reason: str) -> dict[str, Any]:
     return {
         "id": "chatcmpl-cls",
         "object": "chat.completion",
         "model": "judge",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": content},
-                "finish_reason": finish_reason,
-            }
-        ],
+        "choices": [{"index": 0, "message": message, "finish_reason": finish_reason}],
         "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
     }
 
 
+def _classifier_reply(arguments: str, name: str = "submit_verdicts") -> dict[str, Any]:
+    """The classifier answering through its forced verdict tool."""
+    call = {"id": "call_v", "type": "function", "function": {"name": name, "arguments": arguments}}
+    message = {"role": "assistant", "content": None, "tool_calls": [call]}
+    return _classifier_message(message, "stop")
+
+
+def _classifier_text(content: str, finish_reason: str = "stop") -> dict[str, Any]:
+    return _classifier_message({"role": "assistant", "content": content}, finish_reason)
+
+
 def _verdicts(**by_id: dict[str, Any]) -> str:
-    return json.dumps({"verdicts": by_id})
+    return json.dumps({"verdicts": [{"id": call_id, **v} for call_id, v in by_id.items()]})
 
 
 def _results(body: dict[str, Any]) -> dict[str, Any]:
@@ -230,6 +235,10 @@ def test_classifier_sees_claude_code_inputs_but_no_tool_output_or_agent_prose(
     assert "AGENT PROSE" not in user
     calls = json.loads(user.split("<tool_calls>\n", 1)[1].split("\n</tool_calls>", 1)[0])
     assert calls == [{"id": _TOOL_ID, "name": "get_weather", "input": {"location": "SF"}}]
+    [request] = [r.json() for r in fake.requests if r.provider_key == "cls"]
+    assert request["tool_choice"] == {"type": "function", "function": {"name": "submit_verdicts"}}
+    [tool] = request["tools"]
+    assert (tool["function"]["name"], tool["function"]["strict"]) == ("submit_verdicts", True)
 
 
 def test_translated_stream_stamps_final_message_delta(fake: FakeUpstream) -> None:
@@ -286,10 +295,28 @@ _CLS_PATH = "/chat/completions"
             (400, {"error": {"message": "long", "code": "context_length_exceeded"}}),
             "input_too_long",
         ),
-        ((200, _classifier_reply("I think it is fine")), "error"),
+        ((200, _classifier_text(_verdicts(**{_TOOL_ID: {"flagged": False}}))), "error"),
+        ((200, _classifier_reply(_verdicts(**{_TOOL_ID: {"flagged": False}}), "other")), "error"),
+        ((200, _classifier_reply(_verdicts(**{_TOOL_ID: {"flagged": True}})[:-1])), "error"),
         ((200, _classifier_reply(_verdicts(other_id={"flagged": False}))), "error"),
         ((200, _classifier_reply(_verdicts(**{_TOOL_ID: {"flagged": "no"}}))), "error"),
-        ((200, _classifier_reply("", "content_filter")), "refused"),
+        (
+            (
+                200,
+                _classifier_reply(
+                    json.dumps(
+                        {
+                            "verdicts": [
+                                {"id": _TOOL_ID, "flagged": True, "explanation": "[R] x"},
+                                {"id": _TOOL_ID, "flagged": False, "explanation": ""},
+                            ]
+                        }
+                    )
+                ),
+            ),
+            "error",
+        ),
+        ((200, _classifier_text("", "content_filter")), "refused"),
         (httpx2.ReadTimeout("slow"), "timeout"),
         (httpx2.ConnectError("down"), "error"),
     ],
@@ -297,9 +324,12 @@ _CLS_PATH = "/chat/completions"
         "status_500",
         "status_413",
         "context_length_code",
-        "prose",
+        "text_verdicts_without_tool_call",
+        "other_tool",
+        "malformed_arguments",
         "missing_id",
         "non_bool",
+        "conflicting_duplicate",
         "refusal",
         "timeout",
         "connect",
@@ -656,3 +686,34 @@ def test_rosetta_reviewed_anthropic_provider_json_reply_gets_verdicts(fake: Fake
     body = r.json()
     assert {k: v for k, v in body.items() if k != "safeguard_results"} == reply
     assert _results(body) == {tool_id: {"type": "evaluated", "outcome": "not_flagged"}}
+
+
+@pytest.mark.parametrize(
+    ("reply", "fault"),
+    [
+        (_classifier_text(_verdicts(**{_TOOL_ID: {"flagged": False}})), "no_verdict_tool_call"),
+        (
+            _classifier_reply(_verdicts(**{_TOOL_ID: {"flagged": True}})[:-1]),
+            "invalid_verdict_arguments",
+        ),
+    ],
+    ids=["text_reply", "malformed_arguments"],
+)
+def test_unusable_classifier_reply_logs_its_fault(
+    fake: FakeUpstream, capsys: pytest.CaptureFixture[str], reply: dict[str, Any], fault: str
+) -> None:
+    fake.add_json("abc", "POST", "/chat/completions", 200, _chat_tool_call())
+    fake.add_json("cls", "POST", _CLS_PATH, 200, reply)
+    with _client(fake) as c:
+        capsys.readouterr()
+        c.post("/v1/messages", json=_messages("abc/m1"))
+    lines = [
+        json.loads(line) for line in capsys.readouterr().out.splitlines() if line.startswith("{")
+    ]
+
+    [failed] = [line for line in lines if line["event"] == "auto_mode_review_failed"]
+    assert (failed["reason"], failed["reply_fault"], failed["stop_reason"]) == (
+        "error",
+        fault,
+        "end_turn",
+    )

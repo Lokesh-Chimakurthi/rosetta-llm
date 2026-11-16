@@ -128,6 +128,56 @@ async def test_chat_stream_usage_inline_on_finish_chunk_single_delta() -> None:
     assert delta.stop.normalized == "end_turn"
 
 
+async def test_chat_stream_usage_on_trailing_chunk_with_empty_choice_delta() -> None:
+    """Usage on a chunk whose `choices` holds one empty delta is still reported.
+
+    Shape from a live LiteLLM proxy (Bedrock backend): finish chunk without
+    usage, then the usage chunk with a non-empty `choices` list, then [DONE].
+    """
+    events = await _parse(
+        _chunk(
+            {
+                "id": "x",
+                "object": "chat.completion.chunk",
+                "model": "m1",
+                "choices": [{"index": 0, "delta": {"content": "hi"}}],
+            }
+        ),
+        _chunk(
+            {
+                "id": "x",
+                "object": "chat.completion.chunk",
+                "model": "m1",
+                "choices": [{"finish_reason": "length", "index": 0, "delta": {}}],
+            }
+        ),
+        _chunk(
+            {
+                "id": "x",
+                "object": "chat.completion.chunk",
+                "model": "m1",
+                "choices": [{"index": 0, "delta": {}}],
+                "usage": {
+                    "prompt_tokens": 25794,
+                    "completion_tokens": 8,
+                    "prompt_tokens_details": {"cached_tokens": 25769, "cache_write_tokens": 0},
+                },
+            }
+        ),
+        b"data: [DONE]\n\n",
+    )
+
+    deltas = _deltas(events)
+    assert len(deltas) == 1
+    delta = deltas[0]
+    assert delta.usage is not None
+    assert delta.usage.input_tokens == 25794
+    assert delta.usage.output_tokens == 8
+    assert delta.usage.cache_read_input_tokens == 25769
+    assert delta.stop is not None
+    assert delta.stop.normalized == "max_tokens"
+
+
 async def test_chat_stream_usage_zero_when_upstream_sends_none() -> None:
     """Stream ending without any usage still gets one zero-usage delta before stop."""
     events = await _parse(

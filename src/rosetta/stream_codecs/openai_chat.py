@@ -114,11 +114,13 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     )
                     continue
 
+                # Usage may ride any chunk: a choices-empty one (OpenAI with
+                # include_usage), the finish chunk, or one holding an empty
+                # delta (LiteLLM). The single terminal delta carries the total.
+                _merge_usage(usage, data.get("usage") or {})
+
                 choices = data.get("choices") or []
                 if not choices:
-                    # Usage-only chunk (include_usage): accumulate; the delta
-                    # is emitted once, at the terminal.
-                    _merge_usage(usage, data.get("usage") or {})
                     continue
 
                 choice = choices[0]
@@ -194,10 +196,6 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                     for idx in tool_seen:
                         yield PartStopEvent(index=idx)
                     tool_seen.clear()
-                    # Some providers inline usage on the finish chunk; with
-                    # include_usage the full chunk follows later. Either way
-                    # the single terminal delta carries the accumulation.
-                    _merge_usage(usage, data.get("usage") or {})
                     stop = StopInfo(normalized=_STOP_IN.get(finish, finish), provider_raw=finish)
 
     # Generator exhausted without [DONE]: still terminate well-formed so the

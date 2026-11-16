@@ -65,8 +65,8 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Tool-use input**: Anthropic's `tool_use.input` is a JSON object. Serialize to `arguments_json_text` (string) in IR via orjson; deserialize back on render.
 - **Reasoning signature encoding**: `f"{encrypted_content}@{reasoning_id}"` — split on the **last** `@` to decode. Compaction items prefix with `cm1#`. This is lossless across Anthropic ↔ Responses round-trips.
 - **thinking.type**: parsed as `reasoning.thinking_type` (enabled/adaptive/disabled). Rendered back as `thinking: {type, budget_tokens}`.
-- **cache_control**: preserved in `_raw` on every content block. Rendered back when present.
-- **Tool extras**: `defer_loading`, `type`, `cache_control` from tool `_raw` are merged into rendered tool definitions.
+- **cache_control**: parsed into the typed IR field `cache_control` (`CacheControl`, keys kept verbatim) on system blocks, tools and content parts; rendered from that field, never from `_raw`.
+- **Tool extras**: `defer_loading`, `type` and the other keys of tool `_raw` are merged into rendered tool definitions; `cache_control` comes from the typed field.
 
 ### OpenAI Chat codec
 - **System/developer roles**: extracted from message list, concatenated with `\n\n`, stored as `system` on IR.
@@ -74,6 +74,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **`file` content part**: degraded to `"[File attached: <name>]"` text placeholder.
 - **`input_audio`/`input_video`**: degraded to text placeholder.
 - **Stop**: `stop` field accepts string or array. Arrays map to `stop_sequences`; single strings also map.
+- **cache_control**: the LiteLLM/OpenRouter extension. Parsed from content parts, `tool_calls` entries and tools. Rendered on system and message content parts, tool-message content, `tool_calls` entries and tools whenever the IR carries a breakpoint; the system prompt is a part list only then, a string otherwise.
 
 ### OpenAI Responses codec
 - **Input items**: message, function_call, function_call_output, reasoning, compaction, item_reference.
@@ -87,6 +88,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Header forwarding**: `anthropic-beta`, `anthropic-version`, `x-claude-code-session-id` extracted from inbound request and forwarded to every upstream call.
 - **Untranslated fields**: top-level request fields a codec doesn't translate land in `raw_extras`, tagged with `raw_extras_format`. `codecs/extras.py::extras_for` is the one rule for what a renderer forwards: everything to the same format, only `_SHARED_FIELDS` (same name and meaning) between Chat and Responses, nothing between Anthropic and either OpenAI format. Strict upstreams reject unknown fields. The pipeline logs dropped names (never values) as `dropped_fields` at debug.
 - **Auto mode review**: Claude Code sends `safeguards` (a `dangerous_tool_use` entry with `classifier_context`) plus a `dangerous-tool-use-*` beta, and from 2.1.319 denies any tool call without a verdict in `safeguard_results`; behind a gateway it no longer falls back to its own classifier. `pipeline._rosetta_reviews` is the one rule for who answers. An `anthropic` provider with `auto_mode_review: "upstream"` (the default) gets the request byte for byte, and its `safeguard_results` are relayed verbatim. Every other route gets verdicts from `auto_mode.classifier_model` (`auto_mode/`); `safeguards` and its beta are stripped before forwarding. Without `auto_mode` such a request is a 400 naming `safeguards`, Anthropic's documented gateway refusal. Never rewrite tool-use ids: verdicts are keyed by them. A classifier failure is an `unavailable` verdict, never `not_flagged`. The classifier answers only through the forced, strict `submit_verdicts` tool call; free text is never parsed for verdicts (models drop closing braces of hand-written nested JSON). The tool schema is static so it never breaks the prompt-cache prefix. The classifier's prompt is Rosetta's base prompt, then Claude Code's built-in rules (`claude auto-mode defaults`, run at startup), then the operator's `instructions_file`. The rules policy comes from Claude Code; Rosetta owns only the base prompt. The transcript mirrors Claude Code's own classifier: user text and tool calls, never tool results or assistant prose.
+- **Prompt-cache breakpoints**: `Route.forwards_cache_control` is the one rule: always for `anthropic`, for `openai_chat` only when the listed model sets `forward_cache_control` (LiteLLM's Gemini route fails with markers, strict servers reject them), never for `openai_responses`. Otherwise `_translate` strips them from the IR and logs `cache_control` in `dropped_fields`.
 - **Model resolution**: `<provider_key>/<model_name>` split on first `/`. Optional `upstream_name` per model remaps what we forward. `claude-code/` prefix stripped and re-resolved.
 - **Provider status**: recorded after each upstream call; exposed via `GET /providers`.
 - **Cancellation**: `request.is_disconnected()` polled in streaming loops; on disconnect, the generator exits, closing the `UpstreamClient.stream` context and its connection.
@@ -136,7 +138,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
       "extra_headers": {},
       "extra_headers_env": {},
       "timeout": {"connect": 30, "read": 600},
-      "models": [{"id": "model-name", "upstream_name": "...", "supports": {...}, "thinking_budget_default": 12288}],
+      "models": [{"id": "model-name", "upstream_name": "...", "supports": {...}, "thinking_budget_default": 12288, "forward_cache_control": false}],
       "models_ttl_seconds": 300,
       "auto_mode_review": "upstream | rosetta (anthropic format only)"
     }
@@ -149,13 +151,13 @@ Model id format: `<provider_key>/<model_name>` (e.g., `anthropic/claude-opus-4-7
 
 ## Tests
 
-- `tests/codecs/test_roundtrip.py` — codec property tests: Anthropic round-trip, tool-use input as object, tool-result ordering, Chat→Anthropic tool-call ID preservation, reasoning lossless round-trip (encrypted_content+id via signature), response round-trip, unknown-param passthrough within a format and its absence across formats (shared Chat↔Responses fields excepted), max_tokens synthesis, streaming partial-JSON buffering.
+- `tests/codecs/test_roundtrip.py` — codec property tests: Anthropic round-trip, tool-use input as object, tool-result ordering, Chat→Anthropic tool-call ID preservation, reasoning lossless round-trip (encrypted_content+id via signature), response round-trip, unknown-param passthrough within a format and its absence across formats (shared Chat↔Responses fields excepted), max_tokens synthesis, streaming partial-JSON buffering, Chat `cache_control` reaching Anthropic.
 - `tests/support/upstream.py` — `FakeUpstream` (an httpx2 transport routing by provider key and path, recording every request; `add_json`, `add_sse` with fixture name or bytes plus `chunk_size`/`delay_s`, `add_error`, `streams_opened`/`streams_closed`), `build_client(config, fake)` and `load_fixture(fmt, name)`. Tests never patch the network.
 - `tests/support/contracts.py` — SDK-schema plus lifecycle validators for every wire format (`validate_anthropic_message/stream`, `validate_chat_completion/stream`, `validate_response/responses_stream`); each failure starts with `[<rule>]`.
 - `tests/fixtures/sse/<format>/` — upstream SSE fixtures (text, tool_call, reasoning, error_midstream; anthropic also tool_call_safeguards), each opening with a comment naming the documentation it follows.
 - `tests/test_harness.py` — the harness itself: fixtures pass, targeted mutations fail their named rule, passthrough stays byte-identical under any upstream chunking (hypothesis).
 - `tests/test_upstream.py` — `UpstreamClient` contract: error-status streams, capped error body, stream headers, transport-error kinds without host leakage.
-- `tests/test_e2e.py` — FastAPI TestClient + FakeUpstream: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough, auto mode passthrough (keeps `safeguards`/`safeguard_results`).
+- `tests/test_e2e.py` — FastAPI TestClient + FakeUpstream: health, models, count_tokens, Chat passthrough, Anthropic→Chat translation, unknown provider 400, upstream-error format matching, auth, stream passthrough, auto mode passthrough (keeps `safeguards`/`safeguard_results`), prompt-cache breakpoints sent only to Chat models with `forward_cache_control`.
 - `tests/test_auto_mode.py` — Rosetta's auto mode review end to end: verdicts on translated and `auto_mode_review: "rosetta"` responses (JSON and SSE), what the classifier is sent (no tool results or assistant prose), every failure as `unavailable`, truncated tool calls, the unconfigured 400, built-in rules from a fake `claude` executable, setup errors, logging.
 
 Run with: `uv run pytest tests/ -q`.

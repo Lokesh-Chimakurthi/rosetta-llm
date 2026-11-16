@@ -143,6 +143,41 @@ def test_responses_reasoning_lossless_via_anthropic_signature() -> None:
     assert rs_item["encrypted_content"] == "ENCRYPTED_BLOB"
 
 
+def test_openai_chat_breakpoints_reach_anthropic() -> None:
+    """LiteLLM-style `cache_control` on Chat parts, tool calls and tools stays an Anthropic breakpoint."""
+    cc = {"type": "ephemeral", "ttl": "1h"}
+    chat = {
+        "model": "abc/m1",
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": "hi", "cache_control": cc}]},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "f", "arguments": "{}"},
+                        "cache_control": cc,
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "call_1", "content": "ok"},
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {"name": "f", "parameters": {"type": "object"}},
+                "cache_control": cc,
+            }
+        ],
+    }
+    rendered = ac.render_request(oc.parse_request(chat))
+    assert rendered["messages"][0]["content"][0]["cache_control"] == cc
+    assert rendered["messages"][1]["content"][0]["cache_control"] == cc
+    assert rendered["tools"][0]["cache_control"] == cc
+
+
 def test_openai_chat_response_roundtrip_to_anthropic() -> None:
     chat_resp = {
         "id": "chatcmpl-x",

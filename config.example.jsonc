@@ -114,7 +114,10 @@
             "structured_output": true
           },
           // Optional default reasoning budget when target uses budget instead of effort
-          "thinking_budget_default": 12288
+          "thinking_budget_default": 12288,
+          // openai_chat only: forward prompt-cache breakpoints as `cache_control`
+          // (LiteLLM/OpenRouter extension for Anthropic-backed models). Default false.
+          "forward_cache_control": false
         }
       ],
       "models_ttl_seconds": 300

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import assert_never
 
 from rosetta.config import Config, ModelConfig, ProviderConfig
 
@@ -18,6 +19,23 @@ class Route:
     upstream_name: str
     # The provider's `models` entry for this id; None when it lists no such model.
     model: ModelConfig | None
+
+    @property
+    def forwards_cache_control(self) -> bool:
+        """Whether translated requests keep their prompt-cache breakpoints.
+
+        Native to Anthropic; on `openai_chat` only for a listed model that sets
+        `forward_cache_control`; never on `openai_responses`, which has no field.
+        """
+        match self.provider.format:
+            case "anthropic":
+                return True
+            case "openai_chat":
+                return self.model is not None and self.model.forward_cache_control
+            case "openai_responses":
+                return False
+            case unreachable:
+                assert_never(unreachable)
 
 
 def resolve_model(model_id: str, config: Config) -> Route:

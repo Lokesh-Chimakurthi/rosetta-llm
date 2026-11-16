@@ -444,3 +444,107 @@ def test_responses_server_state_to_other_format_is_a_400_with_the_remedy(
     assert r.status_code == 400
     assert "full conversation in 'input'" in r.json()["error"]["message"]
     assert fake.requests == []
+
+
+_EPHEMERAL = {"type": "ephemeral"}
+_HOUR = {"type": "ephemeral", "ttl": "1h"}
+
+# Claude Code's breakpoint layout: system prompt, a tool, and the end of the
+# latest turn, here a tool result after an assistant tool call.
+_CACHED_MESSAGES: dict[str, Any] = {
+    "max_tokens": 16,
+    "system": [
+        {"type": "text", "text": "billing header"},
+        {"type": "text", "text": "You are Claude Code.", "cache_control": _HOUR},
+    ],
+    "tools": [
+        {
+            "name": "Read",
+            "description": "Read a file",
+            "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}},
+            "cache_control": _EPHEMERAL,
+        }
+    ],
+    "messages": [
+        {"role": "user", "content": [{"type": "text", "text": "read a.txt"}]},
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "Read",
+                    "input": {"path": "a.txt"},
+                    "cache_control": _EPHEMERAL,
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "toolu_1",
+                    "content": "contents",
+                    "cache_control": _EPHEMERAL,
+                },
+                {"type": "text", "text": "summarize", "cache_control": _EPHEMERAL},
+            ],
+        },
+    ],
+}
+
+
+def _chat_body_for(model: str) -> dict[str, Any]:
+    config: dict[str, Any] = {
+        "providers": {
+            "gw": {
+                "format": "openai_chat",
+                "base_url": "https://gw.test/v1",
+                "api_key": "sk-up",
+                "models": [{"id": "claude-haiku", "forward_cache_control": True}, {"id": "plain"}],
+            }
+        }
+    }
+    fake = FakeUpstream()
+    fake.add_json("gw", "POST", "/chat/completions", 200, _CHAT_COMPLETION)
+    with build_client(config, fake) as client:
+        r = client.post("/v1/messages", json={**_CACHED_MESSAGES, "model": f"gw/{model}"})
+    assert r.status_code == 200
+    return fake.requests[-1].json()
+
+
+def test_breakpoints_reach_a_chat_model_that_opted_in() -> None:
+    sent = _chat_body_for("claude-haiku")
+
+    system, user, assistant, tool, user_text = sent["messages"]
+    assert system == {
+        "role": "system",
+        "content": [
+            {"type": "text", "text": "billing header"},
+            {"type": "text", "text": "You are Claude Code.", "cache_control": _HOUR},
+        ],
+    }
+    assert user == {"role": "user", "content": "read a.txt"}
+    assert assistant["tool_calls"][0]["cache_control"] == _EPHEMERAL
+    assert tool == {
+        "role": "tool",
+        "tool_call_id": "toolu_1",
+        "content": [{"type": "text", "text": "contents", "cache_control": _EPHEMERAL}],
+    }
+    assert user_text == {
+        "role": "user",
+        "content": [{"type": "text", "text": "summarize", "cache_control": _EPHEMERAL}],
+    }
+    assert sent["tools"][0]["cache_control"] == _EPHEMERAL
+
+
+def test_breakpoints_never_reach_a_chat_model_that_did_not_opt_in() -> None:
+    sent = _chat_body_for("plain")
+
+    assert "cache_control" not in json.dumps(sent)
+    assert sent["messages"][0] == {
+        "role": "system",
+        "content": "billing header\n\nYou are Claude Code.",
+    }
+    assert sent["messages"][3]["content"] == "contents"

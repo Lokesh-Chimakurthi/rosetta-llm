@@ -332,6 +332,8 @@ def test_debug_completion_names_fields_dropped_by_translation(
     extras = {
         "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
         "safeguards": [{"secret": "sk-in-body"}],
+        # The model has not opted in to forward_cache_control.
+        "system": [{"type": "text", "text": "s", "cache_control": {"type": "ephemeral"}}],
     }
     _, mine, _ = _run(
         "debug",
@@ -341,5 +343,5 @@ def test_debug_completion_names_fields_dropped_by_translation(
         log_completed=True,
     )
     completed = mine[-1]
-    assert completed["dropped_fields"] == ["context_management", "safeguards"]
+    assert completed["dropped_fields"] == ["cache_control", "context_management", "safeguards"]
     assert "sk-in-body" not in json.dumps(mine)

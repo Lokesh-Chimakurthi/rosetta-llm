@@ -14,6 +14,7 @@ import orjson
 from rosetta.codecs.extras import extras_for
 from rosetta.ir.helpers import with_raw
 from rosetta.ir.request import (
+    CacheControl,
     CanonicalRequest,
     ContentPart,
     DocumentPart,
@@ -87,8 +88,9 @@ def _arguments_from_text(text: str) -> Any:
 
 def _parse_content_block(block: dict[str, Any]) -> ContentPart:
     block_type = block.get("type", "")
+    cc = CacheControl.from_wire(block.get("cache_control"))
     if block_type == "text":
-        return with_raw(TextPart(text=block.get("text", "")), block)
+        return with_raw(TextPart(text=block.get("text", ""), cache_control=cc), block)
     if block_type == "image":
         source = block.get("source", {})
         return with_raw(
@@ -96,6 +98,7 @@ def _parse_content_block(block: dict[str, Any]) -> ContentPart:
                 source_type="url" if source.get("type") == "url" else "base64",
                 media_type=source.get("media_type", "image/png"),
                 data=source.get("url") or source.get("data", ""),
+                cache_control=cc,
             ),
             block,
         )
@@ -105,6 +108,7 @@ def _parse_content_block(block: dict[str, Any]) -> ContentPart:
             DocumentPart(
                 media_type=source.get("media_type", "application/pdf"),
                 data=source.get("data", ""),
+                cache_control=cc,
             ),
             block,
         )
@@ -114,6 +118,7 @@ def _parse_content_block(block: dict[str, Any]) -> ContentPart:
                 call_id=block.get("id", ""),
                 name=block.get("name", ""),
                 arguments_json_text=_arguments_to_text(block.get("input")),
+                cache_control=cc,
             ),
             block,
         )
@@ -131,6 +136,7 @@ def _parse_content_block(block: dict[str, Any]) -> ContentPart:
                 call_id=block.get("tool_use_id", ""),
                 content_parts=parts,
                 is_error=bool(block.get("is_error", False)),
+                cache_control=cc,
             ),
             block,
         )
@@ -144,6 +150,7 @@ def _parse_content_block(block: dict[str, Any]) -> ContentPart:
                 signature=signature,
                 encrypted_content=encrypted,
                 reasoning_id=rid,
+                cache_control=cc,
             ),
             block,
         )
@@ -162,7 +169,7 @@ def _parse_content_block(block: dict[str, Any]) -> ContentPart:
 
 
 def _render_content_part(part: ContentPart) -> dict[str, Any]:
-    cc = part._raw.get("cache_control") if isinstance(part._raw, dict) else None
+    cc = part.cache_control.to_wire() if part.cache_control is not None else None
     if isinstance(part, TextPart):
         block: dict[str, Any] = {"type": "text", "text": part.text}
         if cc:
@@ -249,7 +256,12 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
         system = system_raw
     elif isinstance(system_raw, list):
         system = [
-            TextPart(text=b.get("text", "")) if isinstance(b, dict) else TextPart(text=str(b))
+            TextPart(
+                text=b.get("text", ""),
+                cache_control=CacheControl.from_wire(b.get("cache_control")),
+            )
+            if isinstance(b, dict)
+            else TextPart(text=str(b))
             for b in system_raw
         ]
     else:
@@ -261,6 +273,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
                 name=t.get("name", ""),
                 description=t.get("description", ""),
                 input_schema=t.get("input_schema", {}),
+                cache_control=CacheControl.from_wire(t.get("cache_control")),
             ),
             t,
         )
@@ -322,7 +335,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
 
     if ir.system is not None:
         if isinstance(ir.system, list):
-            body["system"] = [{"type": "text", "text": p.text} for p in ir.system]
+            body["system"] = [_render_content_part(p) for p in ir.system]
         else:
             body["system"] = ir.system
 
@@ -370,6 +383,9 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
             tool_body["name"] = t.name
             tool_body["description"] = t.description
             tool_body["input_schema"] = t.input_schema or {"type": "object", "properties": {}}
+            tool_body.pop("cache_control", None)
+            if t.cache_control is not None:
+                tool_body["cache_control"] = t.cache_control.to_wire()
             tools.append(tool_body)
         body["tools"] = tools
         body["tool_choice"] = _render_tool_choice(ir.tool_choice)

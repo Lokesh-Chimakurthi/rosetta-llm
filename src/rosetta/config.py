@@ -32,6 +32,11 @@ class ModelConfig(BaseModel):
     upstream_name: str | None = None
     supports: Capabilities = Field(default_factory=Capabilities)
     thinking_budget_default: int = 12288
+    # `openai_chat` only: send prompt-cache breakpoints as `cache_control`, an
+    # extension LiteLLM and OpenRouter accept for Anthropic-backed models.
+    # Off by default: strict servers reject the unknown field, and LiteLLM's
+    # Gemini route fails when it is sent.
+    forward_cache_control: bool = False
 
     @property
     def effective_upstream_name(self) -> str:
@@ -63,6 +68,19 @@ class ProviderConfig(BaseModel):
             raise ValueError(
                 "auto_mode_review applies only to 'anthropic' providers; "
                 "Rosetta always reviews tool calls for other formats"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_forward_cache_control(self) -> ProviderConfig:
+        if self.format == "openai_chat":
+            return self
+        named = [m.id for m in self.static_models if "forward_cache_control" in m.model_fields_set]
+        if named:
+            raise ValueError(
+                f"models {named} set forward_cache_control, which applies only to "
+                "'openai_chat' providers; remove it (anthropic providers always forward "
+                "cache_control, openai_responses has no such field)"
             )
         return self
 

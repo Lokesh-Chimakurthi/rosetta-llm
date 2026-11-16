@@ -78,3 +78,10 @@ def test_extra_headers_env_value_hidden_from_error_message(
         )
     assert "do-not-leak-me" not in str(exc_info.value)
     assert "LEAK_CHECK" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("fmt", ["anthropic", "openai_responses"])
+def test_forward_cache_control_rejected_outside_openai_chat(fmt: str) -> None:
+    models = [{"id": "m1", "forward_cache_control": False}]
+    with pytest.raises(ValidationError, match=r"\['m1'\].*only to 'openai_chat'"):
+        ProviderConfig.model_validate(_base_provider(format=fmt, models=models))

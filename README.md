@@ -339,7 +339,7 @@ With `log_completed`, each request also logs `request_completed` — at `info` f
 |-------|---------|
 | `status`, `duration_ms` | Status sent and total time |
 | `ttft_ms` | Streams only: time to the first bytes sent |
-| `input_tokens`, `output_tokens`, `stop_reason` | Translated responses only, from the upstream usage and stop reason |
+| `input_tokens`, `output_tokens`, `stop_reason` | Translated responses only, from the upstream usage and stop reason; `input_tokens` counts every prompt token, cached ones included |
 | `error` | `invalid_request`, `auto_mode_unreviewed`, `upstream_connect`, `upstream_timeout`, `upstream_protocol`, `upstream_status`, `translation_error`, or the exception class name |
 | `upstream_status` | With `error`, the status the provider returned |
 | `client_disconnected` | `true` when the client left before the response finished |

@@ -15,6 +15,7 @@ from typing import Any
 
 import orjson
 
+from rosetta.codecs.anthropic import parse_usage, uncached_input_tokens
 from rosetta.ir.events import (
     CanonicalStreamEvent,
     ErrorEvent,
@@ -27,14 +28,20 @@ from rosetta.ir.events import (
     PingEvent,
 )
 from rosetta.ir.helpers import with_raw
-from rosetta.ir.response import StopInfo, Usage
+from rosetta.ir.response import StopInfo
 from rosetta.stop_reasons import ANTHROPIC_STOP as _STOP_NORM
 
 
 async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEvent]:
-    """Parse Anthropic SSE byte stream into canonical IR events."""
+    """Parse Anthropic SSE byte stream into canonical IR events.
+
+    `message_start` reports the prompt and cache counts, `message_delta` the
+    output count and sometimes cumulative prompt counts; the delta's usage
+    is their merge, a field the delta reports winning.
+    """
     buffer = b""
     current_block_index = -1
+    start_usage: dict[str, Any] = {}
 
     async for chunk in chunks:
         buffer += chunk
@@ -63,6 +70,7 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
 
             if evt == "message_start":
                 msg = data.get("message", {}) or {}
+                start_usage = msg.get("usage") or {}
                 yield with_raw(MessageStartEvent(model=msg.get("model", "")), msg)
             elif evt == "content_block_start":
                 block = data.get("content_block", {}) or {}
@@ -100,7 +108,7 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                 yield PartStopEvent(index=data.get("index", current_block_index))
             elif evt == "message_delta":
                 delta = data.get("delta", {}) or {}
-                usage_data = data.get("usage", {}) or {}
+                reported = {k: v for k, v in (data.get("usage") or {}).items() if v is not None}
                 stop_reason = delta.get("stop_reason", "") or ""
                 yield MessageDeltaEvent(
                     stop=StopInfo(
@@ -108,16 +116,7 @@ async def parse(chunks: AsyncIterator[bytes]) -> AsyncIterator[CanonicalStreamEv
                         provider_raw=stop_reason,
                         stop_sequence=delta.get("stop_sequence"),
                     ),
-                    usage=Usage(
-                        input_tokens=int(usage_data.get("input_tokens", 0) or 0),
-                        output_tokens=int(usage_data.get("output_tokens", 0) or 0),
-                        cache_read_input_tokens=int(
-                            usage_data.get("cache_read_input_tokens", 0) or 0
-                        ),
-                        cache_creation_input_tokens=int(
-                            usage_data.get("cache_creation_input_tokens", 0) or 0
-                        ),
-                    ),
+                    usage=parse_usage({**start_usage, **reported}),
                 )
             elif evt == "message_stop":
                 yield MessageStopEvent()
@@ -165,9 +164,7 @@ def _message_delta_payload(event: MessageDeltaEvent) -> dict[str, Any]:
     usage_data: dict[str, Any] = {"output_tokens": 0}
     if event.usage:
         u = event.usage
-        usage_data["input_tokens"] = max(
-            u.input_tokens - u.cache_read_input_tokens - u.cache_creation_input_tokens, 0
-        )
+        usage_data["input_tokens"] = uncached_input_tokens(u)
         usage_data["output_tokens"] = u.output_tokens
         if u.cache_read_input_tokens:
             usage_data["cache_read_input_tokens"] = u.cache_read_input_tokens

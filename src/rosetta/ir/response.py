@@ -10,6 +10,13 @@ from rosetta.ir.request import Message
 
 
 class Usage(BaseModel):
+    """Token counts with one meaning across formats.
+
+    `input_tokens` counts every prompt token, cache reads and writes included,
+    as OpenAI's `prompt_tokens` and `input_tokens` do. Anthropic reports only
+    the uncached remainder; its codecs convert at the boundary.
+    """
+
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_input_tokens: int = 0

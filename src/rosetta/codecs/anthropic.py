@@ -7,6 +7,7 @@ on parse by splitting on the *last* `@`.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 import orjson
@@ -50,6 +51,25 @@ _REQUEST_TOP_LEVEL_KEYS = frozenset(
         "metadata",
     }
 )
+
+
+def parse_usage(usage: Mapping[str, Any]) -> Usage:
+    """IR usage from an Anthropic `usage` object, whose `input_tokens` excludes the cache."""
+    read = int(usage.get("cache_read_input_tokens", 0) or 0)
+    creation = int(usage.get("cache_creation_input_tokens", 0) or 0)
+    return Usage(
+        input_tokens=int(usage.get("input_tokens", 0) or 0) + read + creation,
+        output_tokens=int(usage.get("output_tokens", 0) or 0),
+        cache_read_input_tokens=read,
+        cache_creation_input_tokens=creation,
+    )
+
+
+def uncached_input_tokens(usage: Usage) -> int:
+    """Anthropic's `input_tokens`: prompt tokens neither read from nor written to the cache."""
+    return max(
+        usage.input_tokens - usage.cache_read_input_tokens - usage.cache_creation_input_tokens, 0
+    )
 
 
 def _decode_signature(signature: str) -> tuple[str, str]:
@@ -461,14 +481,7 @@ def parse_response(payload: dict[str, Any]) -> CanonicalResponse:
                 provider_raw=stop_reason,
                 stop_sequence=payload.get("stop_sequence"),
             ),
-            usage=Usage(
-                input_tokens=int(usage_data.get("input_tokens", 0) or 0),
-                output_tokens=int(usage_data.get("output_tokens", 0) or 0),
-                cache_read_input_tokens=int(usage_data.get("cache_read_input_tokens", 0) or 0),
-                cache_creation_input_tokens=int(
-                    usage_data.get("cache_creation_input_tokens", 0) or 0
-                ),
-            ),
+            usage=parse_usage(usage_data),
         ),
         payload,
     )
@@ -486,7 +499,7 @@ def render_response(ir: CanonicalResponse) -> dict[str, Any]:
         "stop_reason": _STOP_REASON_MAP.get(ir.stop.normalized, ir.stop.provider_raw or None),
         "stop_sequence": ir.stop.stop_sequence,
         "usage": {
-            "input_tokens": ir.usage.input_tokens,
+            "input_tokens": uncached_input_tokens(ir.usage),
             "output_tokens": ir.usage.output_tokens,
             "cache_read_input_tokens": ir.usage.cache_read_input_tokens,
             "cache_creation_input_tokens": ir.usage.cache_creation_input_tokens,

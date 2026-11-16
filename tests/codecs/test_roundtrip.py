@@ -203,6 +203,26 @@ def test_openai_chat_response_roundtrip_to_anthropic() -> None:
     assert anthropic_resp["stop_reason"] == "end_turn"
 
 
+def test_anthropic_response_usage_reaches_chat_with_cache_in_prompt_tokens() -> None:
+    anthropic = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude",
+        "content": [{"type": "text", "text": "hi"}],
+        "stop_reason": "end_turn",
+        "usage": {
+            "input_tokens": 2,
+            "output_tokens": 4,
+            "cache_read_input_tokens": 5,
+            "cache_creation_input_tokens": 3,
+        },
+    }
+    usage = oc.render_response(ac.parse_response(anthropic))["usage"]
+    assert (usage["prompt_tokens"], usage["total_tokens"]) == (10, 14)
+    assert usage["prompt_tokens_details"] == {"cached_tokens": 5, "cache_write_tokens": 3}
+
+
 def test_anthropic_unknown_param_passthrough_via_raw_extras() -> None:
     payload = {
         "model": "x",

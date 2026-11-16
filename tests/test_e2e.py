@@ -548,3 +548,53 @@ def test_breakpoints_never_reach_a_chat_model_that_did_not_opt_in() -> None:
         "content": "billing header\n\nYou are Claude Code.",
     }
     assert sent["messages"][3]["content"] == "contents"
+
+
+def test_anthropic_json_translation_reports_uncached_input_tokens(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    """Chat's prompt_tokens includes the cache; Anthropic's input_tokens does not."""
+    usage = {
+        "prompt_tokens": 10,
+        "completion_tokens": 2,
+        "prompt_tokens_details": {"cached_tokens": 5, "cache_write_tokens": 3},
+    }
+    fake.add_json("abc", "POST", "/chat/completions", 200, {**_CHAT_COMPLETION, "usage": usage})
+    r = client.post(
+        "/v1/messages",
+        json={
+            "model": "abc/m1",
+            "max_tokens": 16,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    )
+
+    assert r.json()["usage"] == {
+        "input_tokens": 2,
+        "output_tokens": 2,
+        "cache_read_input_tokens": 5,
+        "cache_creation_input_tokens": 3,
+    }
+
+
+def test_chat_stream_from_anthropic_reports_prompt_tokens_from_message_start(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    """The documented Anthropic stream sends input_tokens only in message_start."""
+    fake.add_sse("anth", "/messages", "text")
+    with client.stream(
+        "POST",
+        "/v1/chat/completions",
+        json={
+            "model": "anth/claude",
+            "stream": True,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    ) as r:
+        body = b"".join(r.iter_bytes())
+
+    chunks = [
+        json.loads(line[6:]) for line in body.decode().split("\n") if line.startswith("data: {")
+    ]
+    usage = next(c["usage"] for c in reversed(chunks) if c.get("usage"))
+    assert (usage["prompt_tokens"], usage["completion_tokens"]) == (25, 15)

@@ -66,6 +66,7 @@ On inference, the `claude-code/` prefix is stripped and the model resolves norma
 - **Reasoning signature encoding**: `f"{encrypted_content}@{reasoning_id}"` — split on the **last** `@` to decode. Compaction items prefix with `cm1#`. This is lossless across Anthropic ↔ Responses round-trips.
 - **thinking.type**: parsed as `reasoning.thinking_type` (enabled/adaptive/disabled). Rendered back as `thinking: {type, budget_tokens}`.
 - **cache_control**: parsed into the typed IR field `cache_control` (`CacheControl`, keys kept verbatim) on system blocks, tools and content parts; rendered from that field, never from `_raw`.
+- **Usage**: IR `Usage.input_tokens` counts every prompt token, cache reads and writes included (OpenAI's meaning). Anthropic's `input_tokens` excludes them, so `parse_usage` adds them and `uncached_input_tokens` subtracts them, for JSON and SSE alike. In a stream, `message_start` usage is merged into the `message_delta` usage.
 - **Tool extras**: `defer_loading`, `type` and the other keys of tool `_raw` are merged into rendered tool definitions; `cache_control` comes from the typed field.
 
 ### OpenAI Chat codec

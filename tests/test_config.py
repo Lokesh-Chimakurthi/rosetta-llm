@@ -78,3 +78,18 @@ def test_extra_headers_env_value_hidden_from_error_message(
         )
     assert "do-not-leak-me" not in str(exc_info.value)
     assert "LEAK_CHECK" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("fmt", ["anthropic", "openai_responses"])
+@pytest.mark.parametrize(
+    ("overrides", "where"),
+    [
+        ({"forward_cache_control": True}, "the provider"),
+        ({"models": [{"id": "m1", "forward_cache_control": False}]}, "m1"),
+    ],
+)
+def test_forward_cache_control_rejected_outside_openai_chat(
+    fmt: str, overrides: dict[str, object], where: str
+) -> None:
+    with pytest.raises(ValidationError, match=rf"set on {where}, but it applies only"):
+        ProviderConfig.model_validate(_base_provider(format=fmt, **overrides))

@@ -76,9 +76,9 @@ def test_e2e_bare_model_without_default_is_400_with_remedy() -> None:
 
 def test_bare_model_resolves_when_default_set() -> None:
     config = _make_config(default_provider="abc")
-    provider, key, upstream = resolve_model("m1", config)
-    assert (key, upstream) == ("abc", "m1")
-    assert provider is config.providers["abc"]
+    route = resolve_model("m1", config)
+    assert (route.provider_key, route.upstream_name) == ("abc", "m1")
+    assert route.provider is config.providers["abc"]
 
 
 def test_bare_model_raises_with_remedy_when_no_default() -> None:
@@ -87,8 +87,8 @@ def test_bare_model_raises_with_remedy_when_no_default() -> None:
 
 
 def test_prefixed_model_still_works_with_default() -> None:
-    _, key, upstream = resolve_model("abc/m1", _make_config(default_provider="abc"))
-    assert (key, upstream) == ("abc", "m1")
+    route = resolve_model("abc/m1", _make_config(default_provider="abc"))
+    assert (route.provider_key, route.upstream_name) == ("abc", "m1")
 
 
 def test_config_rejects_unknown_default_provider() -> None:

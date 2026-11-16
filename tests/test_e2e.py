@@ -444,3 +444,187 @@ def test_responses_server_state_to_other_format_is_a_400_with_the_remedy(
     assert r.status_code == 400
     assert "full conversation in 'input'" in r.json()["error"]["message"]
     assert fake.requests == []
+
+
+_EPHEMERAL = {"type": "ephemeral"}
+_HOUR = {"type": "ephemeral", "ttl": "1h"}
+
+# Claude Code's breakpoint layout: system prompt, a tool, and the end of the
+# latest turn, here a tool result after an assistant tool call.
+_CACHED_MESSAGES: dict[str, Any] = {
+    "max_tokens": 16,
+    "system": [
+        {"type": "text", "text": "billing header"},
+        {"type": "text", "text": "You are Claude Code.", "cache_control": _HOUR},
+    ],
+    "tools": [
+        {
+            "name": "Read",
+            "description": "Read a file",
+            "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}},
+            "cache_control": _EPHEMERAL,
+        }
+    ],
+    "messages": [
+        {"role": "user", "content": [{"type": "text", "text": "read a.txt"}]},
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "Read",
+                    "input": {"path": "a.txt"},
+                    "cache_control": _EPHEMERAL,
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "toolu_1",
+                    "content": "contents",
+                    "cache_control": _EPHEMERAL,
+                },
+                {"type": "text", "text": "summarize", "cache_control": _EPHEMERAL},
+            ],
+        },
+    ],
+}
+
+
+def _gateway_config(**provider: Any) -> dict[str, Any]:
+    return {
+        "providers": {
+            "gw": {
+                "format": "openai_chat",
+                "base_url": "https://gw.test/v1",
+                "api_key": "sk-up",
+                "models": ["*", {"id": "gemini", "forward_cache_control": False}],
+                **provider,
+            }
+        }
+    }
+
+
+def _chat_body_for(model: str, **provider: Any) -> dict[str, Any]:
+    fake = FakeUpstream()
+    fake.add_json("gw", "POST", "/chat/completions", 200, _CHAT_COMPLETION)
+    with build_client(_gateway_config(**provider), fake) as client:
+        r = client.post("/v1/messages", json={**_CACHED_MESSAGES, "model": f"gw/{model}"})
+    assert r.status_code == 200
+    return fake.requests[-1].json()
+
+
+def test_breakpoints_reach_chat_models_by_default() -> None:
+    sent = _chat_body_for("claude-haiku")
+
+    system, user, assistant, tool, user_text = sent["messages"]
+    assert system == {
+        "role": "system",
+        "content": [
+            {"type": "text", "text": "billing header"},
+            {"type": "text", "text": "You are Claude Code.", "cache_control": _HOUR},
+        ],
+    }
+    assert user == {"role": "user", "content": "read a.txt"}
+    assert assistant["tool_calls"][0]["cache_control"] == _EPHEMERAL
+    assert tool == {
+        "role": "tool",
+        "tool_call_id": "toolu_1",
+        "content": [{"type": "text", "text": "contents", "cache_control": _EPHEMERAL}],
+    }
+    assert user_text == {
+        "role": "user",
+        "content": [{"type": "text", "text": "summarize", "cache_control": _EPHEMERAL}],
+    }
+    assert sent["tools"][0]["cache_control"] == _EPHEMERAL
+
+
+@pytest.mark.parametrize(
+    ("model", "provider"),
+    [
+        pytest.param("gemini", {}, id="model-opted-out"),
+        pytest.param("claude-haiku", {"forward_cache_control": False}, id="provider-opted-out"),
+        pytest.param(
+            "gemini",
+            {
+                "forward_cache_control": True,
+                "models": [{"id": "gemini", "forward_cache_control": False}],
+            },
+            id="model-overrides-provider",
+        ),
+    ],
+)
+def test_breakpoints_never_reach_an_opted_out_chat_model(
+    model: str, provider: dict[str, Any]
+) -> None:
+    sent = _chat_body_for(model, **provider)
+
+    assert "cache_control" not in json.dumps(sent)
+    assert sent["messages"][0] == {
+        "role": "system",
+        "content": "billing header\n\nYou are Claude Code.",
+    }
+    assert sent["messages"][3]["content"] == "contents"
+
+
+def test_model_entries_beside_wildcard_keep_discovery() -> None:
+    fake = FakeUpstream()
+    discovered = {"data": [{"id": "claude-haiku"}, {"id": "gemini"}]}
+    fake.add_json("gw", "GET", "/models", 200, discovered)
+    with build_client(_gateway_config(), fake) as client:
+        ids = sorted(m["id"] for m in client.get("/v1/models").json()["data"])
+    assert ids == ["gw/claude-haiku", "gw/gemini"]
+
+
+def test_anthropic_json_translation_reports_uncached_input_tokens(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    """Chat's prompt_tokens includes the cache; Anthropic's input_tokens does not."""
+    usage = {
+        "prompt_tokens": 10,
+        "completion_tokens": 2,
+        "prompt_tokens_details": {"cached_tokens": 5, "cache_write_tokens": 3},
+    }
+    fake.add_json("abc", "POST", "/chat/completions", 200, {**_CHAT_COMPLETION, "usage": usage})
+    r = client.post(
+        "/v1/messages",
+        json={
+            "model": "abc/m1",
+            "max_tokens": 16,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    )
+
+    assert r.json()["usage"] == {
+        "input_tokens": 2,
+        "output_tokens": 2,
+        "cache_read_input_tokens": 5,
+        "cache_creation_input_tokens": 3,
+    }
+
+
+def test_chat_stream_from_anthropic_reports_prompt_tokens_from_message_start(
+    client: TestClient, fake: FakeUpstream
+) -> None:
+    """The documented Anthropic stream sends input_tokens only in message_start."""
+    fake.add_sse("anth", "/messages", "text")
+    with client.stream(
+        "POST",
+        "/v1/chat/completions",
+        json={
+            "model": "anth/claude",
+            "stream": True,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    ) as r:
+        body = b"".join(r.iter_bytes())
+
+    chunks = [
+        json.loads(line[6:]) for line in body.decode().split("\n") if line.startswith("data: {")
+    ]
+    usage = next(c["usage"] for c in reversed(chunks) if c.get("usage"))
+    assert (usage["prompt_tokens"], usage["completion_tokens"]) == (25, 15)

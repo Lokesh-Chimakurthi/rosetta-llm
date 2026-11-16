@@ -234,11 +234,11 @@ def _check(args: argparse.Namespace) -> None:
     width = max((len(key) for key in config.providers), default=0)
     for key, prov in config.providers.items():
         count = len(prov.static_models)
-        models = (
-            "discovers models"
-            if prov.is_auto_discover
-            else f"{count} model{'s' if count != 1 else ''}"
-        )
+        listed = f"{count} model{'s' if count != 1 else ''}"
+        if prov.is_auto_discover:
+            models = f"discovers models, {listed} configured" if count else "discovers models"
+        else:
+            models = listed
         lines.append(f"  {key:<{width}}  {prov.format:<16}  {models}")
     lines.append(f"auto mode:     {_auto_mode_summary(config)}")
     lines.append("ok")

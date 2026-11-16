@@ -74,13 +74,14 @@ async def handle(
     model_id = payload.get("model", "")
     rec.model = model_id or None
     try:
-        provider, provider_key, upstream_name = resolve_model(model_id, config)
+        route = resolve_model(model_id, config)
     except ValueError as e:
         rec.error = "invalid_request"
         return JSONResponse(
             content=format_error(inbound_format, 400, "invalid_request_error", str(e)),
             status_code=400,
         )
+    provider, provider_key, upstream_name = route.provider, route.provider_key, route.upstream_name
 
     # Copy and rewrite the model field without mutating the caller's dict.
     upstream_body = {**payload, "model": upstream_name}
@@ -136,6 +137,7 @@ async def handle(
         fwd_headers,
         status_dict,
         review,
+        forward_cache_control=route.forwards_cache_control,
     )
 
 
@@ -283,9 +285,15 @@ async def _translate(
     fwd_headers: dict[str, str],
     status_dict: dict[str, Any],
     review: Review | None,
+    *,
+    forward_cache_control: bool,
 ) -> Response:
     try:
         ir = PARSE_REQUEST[inbound_format](payload)
+        dropped = set(ir.raw_extras.keys() - extras_for(ir, provider_format).keys())
+        if not forward_cache_control and ir.has_cache_control():
+            ir = ir.without_cache_control()
+            dropped.add("cache_control")
         upstream_body = RENDER_REQUEST[provider_format](ir)
     except Exception as e:  # noqa: BLE001 - any codec failure on client input becomes a 400; logged
         log_translation_failed("request", e)
@@ -293,9 +301,8 @@ async def _translate(
             content=format_error(inbound_format, 400, "translation_error", str(e)),
             status_code=400,
         )
-    dropped = sorted(ir.raw_extras.keys() - extras_for(ir, provider_format).keys())
     if dropped:
-        request_log().dropped_fields = dropped
+        request_log().dropped_fields = sorted(dropped)
 
     if is_stream:
         return StreamingResponse(

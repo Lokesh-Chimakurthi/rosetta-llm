@@ -9,6 +9,7 @@ from typing import Any
 from rosetta.codecs.extras import extras_for
 from rosetta.ir.helpers import with_raw
 from rosetta.ir.request import (
+    CacheControl,
     CanonicalRequest,
     ContentPart,
     ImagePart,
@@ -47,22 +48,29 @@ _REQUEST_TOP_LEVEL_KEYS = frozenset(
 
 def _parse_content_part(part: dict[str, Any]) -> ContentPart:
     part_type = part.get("type", "text")
+    cc = CacheControl.from_wire(part.get("cache_control"))
     if part_type == "text":
-        return with_raw(TextPart(text=part.get("text", "")), part)
+        return with_raw(TextPart(text=part.get("text", ""), cache_control=cc), part)
     if part_type == "image_url":
         url_data = part.get("image_url", {}) or {}
         url = url_data.get("url", "") if isinstance(url_data, dict) else str(url_data)
         if url.startswith("data:"):
             header, _, b64 = url[5:].partition(",")
             media_type = header.split(";")[0] or "image/png"
-            return with_raw(ImagePart(source_type="base64", media_type=media_type, data=b64), part)
-        return with_raw(ImagePart(source_type="url", media_type="image/png", data=url), part)
+            image = ImagePart(
+                source_type="base64", media_type=media_type, data=b64, cache_control=cc
+            )
+            return with_raw(image, part)
+        image = ImagePart(source_type="url", media_type="image/png", data=url, cache_control=cc)
+        return with_raw(image, part)
     if part_type == "input_audio":
-        return with_raw(TextPart(text="[Audio input not supported by target]"), part)
+        return with_raw(
+            TextPart(text="[Audio input not supported by target]", cache_control=cc), part
+        )
     if part_type == "file":
         filename = part.get("filename", "file")
-        return with_raw(TextPart(text=f"[File attached: {filename}]"), part)
-    return with_raw(TextPart(text=part.get("text") or str(part)), part)
+        return with_raw(TextPart(text=f"[File attached: {filename}]", cache_control=cc), part)
+    return with_raw(TextPart(text=part.get("text") or str(part), cache_control=cc), part)
 
 
 def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
@@ -117,6 +125,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
                             call_id=tc.get("id", ""),
                             name=func.get("name", ""),
                             arguments_json_text=func.get("arguments", "") or "{}",
+                            cache_control=CacheControl.from_wire(tc.get("cache_control")),
                         ),
                         tc,
                     )
@@ -162,6 +171,7 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
                     description=func.get("description", ""),
                     input_schema=params,
                     strict=bool(t.get("strict", func.get("strict", False))),
+                    cache_control=CacheControl.from_wire(t.get("cache_control")),
                 ),
                 t,
             )
@@ -204,10 +214,39 @@ def parse_request(payload: dict[str, Any]) -> CanonicalRequest:
     )
 
 
+def _cached(item: dict[str, Any], cache_control: CacheControl | None) -> dict[str, Any]:
+    """`item` with its `cache_control` key when the IR item carries a breakpoint."""
+    if cache_control is None:
+        return item
+    return {**item, "cache_control": cache_control.to_wire()}
+
+
+def _collapsible(parts: list[dict[str, Any]]) -> bool:
+    """Whether `parts` can be sent as a plain string: one text part, no breakpoint."""
+    return len(parts) == 1 and parts[0]["type"] == "text" and "cache_control" not in parts[0]
+
+
 def render_request(ir: CanonicalRequest) -> dict[str, Any]:
+    """Render the IR as a Chat Completions request body.
+
+    Breakpoints the IR carries are written as `cache_control` on system and
+    message content parts, tool-message content, `tool_calls` entries and tool
+    definitions, the LiteLLM/OpenRouter extension; the pipeline removes them
+    for upstreams that have not opted in. Without breakpoints the system prompt
+    is one string, as plain Chat servers expect.
+    """
     body: dict[str, Any] = {"model": ir.model, "messages": []}
 
-    if ir.system is not None:
+    if isinstance(ir.system, list) and any(p.cache_control for p in ir.system):
+        body["messages"].append(
+            {
+                "role": "system",
+                "content": [
+                    _cached({"type": "text", "text": p.text}, p.cache_control) for p in ir.system
+                ],
+            }
+        )
+    elif ir.system is not None:
         system_text = (
             ir.system if isinstance(ir.system, str) else "\n\n".join(p.text for p in ir.system)
         )
@@ -221,13 +260,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
         # Handle tool results: emit each as its own role=tool message first.
         for part in msg.parts:
             if isinstance(part, ToolResultPart):
-                body["messages"].append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": part.call_id,
-                        "content": _tool_result_to_text(part),
-                    }
-                )
+                body["messages"].append(_render_tool_message(part))
 
         if msg.role == "tool":
             continue
@@ -239,24 +272,31 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
 
         for part in msg.parts:
             if isinstance(part, TextPart):
-                content_parts.append({"type": "text", "text": part.text})
+                content_parts.append(
+                    _cached({"type": "text", "text": part.text}, part.cache_control)
+                )
             elif isinstance(part, ImagePart):
                 url = (
                     part.data
                     if part.source_type == "url"
                     else f"data:{part.media_type};base64,{part.data}"
                 )
-                content_parts.append({"type": "image_url", "image_url": {"url": url}})
+                content_parts.append(
+                    _cached({"type": "image_url", "image_url": {"url": url}}, part.cache_control)
+                )
             elif isinstance(part, ToolCallPart):
                 tool_calls.append(
-                    {
-                        "id": part.call_id,
-                        "type": "function",
-                        "function": {
-                            "name": part.name,
-                            "arguments": part.arguments_json_text or "{}",
+                    _cached(
+                        {
+                            "id": part.call_id,
+                            "type": "function",
+                            "function": {
+                                "name": part.name,
+                                "arguments": part.arguments_json_text or "{}",
+                            },
                         },
-                    }
+                        part.cache_control,
+                    )
                 )
             elif isinstance(part, ReasoningPart):
                 if part.text:
@@ -268,7 +308,7 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
         if msg.role == "assistant":
             assistant_msg: dict[str, Any] = {"role": "assistant"}
             if content_parts:
-                if len(content_parts) == 1 and content_parts[0]["type"] == "text":
+                if _collapsible(content_parts):
                     assistant_msg["content"] = content_parts[0]["text"]
                 else:
                     assistant_msg["content"] = content_parts
@@ -284,22 +324,25 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
         elif msg.role == "user":
             if not content_parts:
                 continue
-            if len(content_parts) == 1 and content_parts[0]["type"] == "text":
+            if _collapsible(content_parts):
                 body["messages"].append({"role": "user", "content": content_parts[0]["text"]})
             else:
                 body["messages"].append({"role": "user", "content": content_parts})
 
     if ir.tools:
         body["tools"] = [
-            {
-                "type": "function",
-                "function": {
-                    "name": t.name,
-                    "description": t.description,
-                    "parameters": t.input_schema or {"type": "object", "properties": {}},
-                    **({"strict": True} if t.strict else {}),
+            _cached(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.input_schema or {"type": "object", "properties": {}},
+                        **({"strict": True} if t.strict else {}),
+                    },
                 },
-            }
+                t.cache_control,
+            )
             for t in ir.tools
         ]
         body["tool_choice"] = _render_tool_choice(ir.tool_choice)
@@ -331,6 +374,23 @@ def render_request(ir: CanonicalRequest) -> dict[str, Any]:
         body["stream_options"] = {"include_usage": True}
 
     return body
+
+
+def _render_tool_message(part: ToolResultPart) -> dict[str, Any]:
+    """One `role=tool` message; content is a text part only when it carries a breakpoint.
+
+    The content is flattened to one text, so a breakpoint on the result itself
+    or on any of its parts lands at the end of that text; the result's own wins.
+    """
+    message: dict[str, Any] = {"role": "tool", "tool_call_id": part.call_id}
+    text = _tool_result_to_text(part)
+    inner = [cp.cache_control for cp in part.content_parts if cp.cache_control is not None]
+    cache_control = part.cache_control or (inner[-1] if inner else None)
+    if cache_control is None:
+        message["content"] = text
+    else:
+        message["content"] = [_cached({"type": "text", "text": text}, cache_control)]
+    return message
 
 
 def _tool_result_to_text(part: ToolResultPart) -> str:

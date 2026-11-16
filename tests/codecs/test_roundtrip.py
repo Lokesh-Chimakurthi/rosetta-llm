@@ -143,6 +143,41 @@ def test_responses_reasoning_lossless_via_anthropic_signature() -> None:
     assert rs_item["encrypted_content"] == "ENCRYPTED_BLOB"
 
 
+def test_openai_chat_breakpoints_reach_anthropic() -> None:
+    """LiteLLM-style `cache_control` on Chat parts, tool calls and tools stays an Anthropic breakpoint."""
+    cc = {"type": "ephemeral", "ttl": "1h"}
+    chat = {
+        "model": "abc/m1",
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": "hi", "cache_control": cc}]},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "f", "arguments": "{}"},
+                        "cache_control": cc,
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "call_1", "content": "ok"},
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {"name": "f", "parameters": {"type": "object"}},
+                "cache_control": cc,
+            }
+        ],
+    }
+    rendered = ac.render_request(oc.parse_request(chat))
+    assert rendered["messages"][0]["content"][0]["cache_control"] == cc
+    assert rendered["messages"][1]["content"][0]["cache_control"] == cc
+    assert rendered["tools"][0]["cache_control"] == cc
+
+
 def test_openai_chat_response_roundtrip_to_anthropic() -> None:
     chat_resp = {
         "id": "chatcmpl-x",
@@ -166,6 +201,26 @@ def test_openai_chat_response_roundtrip_to_anthropic() -> None:
     assert anthropic_resp["content"][0]["type"] == "text"
     assert anthropic_resp["content"][0]["text"] == "Hello world"
     assert anthropic_resp["stop_reason"] == "end_turn"
+
+
+def test_anthropic_response_usage_reaches_chat_with_cache_in_prompt_tokens() -> None:
+    anthropic = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude",
+        "content": [{"type": "text", "text": "hi"}],
+        "stop_reason": "end_turn",
+        "usage": {
+            "input_tokens": 2,
+            "output_tokens": 4,
+            "cache_read_input_tokens": 5,
+            "cache_creation_input_tokens": 3,
+        },
+    }
+    usage = oc.render_response(ac.parse_response(anthropic))["usage"]
+    assert (usage["prompt_tokens"], usage["total_tokens"]) == (10, 14)
+    assert usage["prompt_tokens_details"] == {"cached_tokens": 5, "cache_write_tokens": 3}
 
 
 def test_anthropic_unknown_param_passthrough_via_raw_extras() -> None:

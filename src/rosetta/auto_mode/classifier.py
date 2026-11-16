@@ -151,11 +151,14 @@ def prepare(config: Config, auto_mode: AutoModeConfig) -> tuple[Instructions, Cl
         AutoModeSetupError: see `load_instructions`, or the model id does not resolve.
     """
     try:
-        provider, provider_key, upstream_model = resolve_model(auto_mode.classifier_model, config)
+        resolved = resolve_model(auto_mode.classifier_model, config)
     except ValueError as exc:
         raise AutoModeSetupError(f"auto_mode.classifier_model: {exc}") from exc
     route = ClassifierRoute(
-        auto_mode.classifier_model, provider_key, provider.format, upstream_model
+        auto_mode.classifier_model,
+        resolved.provider_key,
+        resolved.provider.format,
+        resolved.upstream_name,
     )
     return load_instructions(auto_mode), route
 

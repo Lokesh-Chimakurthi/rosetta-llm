@@ -2,13 +2,26 @@
 
 from __future__ import annotations
 
-from rosetta.config import Config, ProviderConfig
+from dataclasses import dataclass
+
+from rosetta.config import Config, ModelConfig, ProviderConfig
 
 CLAUDE_CODE_GW_PREFIX = "claude-code/"
 
 
-def resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, str]:
-    """Resolve `<provider>/<model>` to (provider config, provider key, upstream model name).
+@dataclass(frozen=True, slots=True)
+class Route:
+    """Where a model id is sent."""
+
+    provider: ProviderConfig
+    provider_key: str
+    upstream_name: str
+    # The provider's `models` entry for this id; None when it lists no such model.
+    model: ModelConfig | None
+
+
+def resolve_model(model_id: str, config: Config) -> Route:
+    """Resolve `<provider>/<model>` to its provider, upstream model name and model entry.
 
     A `claude-code/` prefix is stripped first; a bare name routes to
     `default_provider` when one is set. `upstream_name` remaps the model name.
@@ -37,9 +50,6 @@ def resolve_model(model_id: str, config: Config) -> tuple[ProviderConfig, str, s
     provider = config.providers.get(provider_key)
     if provider is None:
         raise ValueError(f"Unknown provider '{provider_key}'")
-    upstream_name = model_name
-    for m in provider.static_models:
-        if m.id == model_name:
-            upstream_name = m.effective_upstream_name
-            break
-    return provider, provider_key, upstream_name
+    model = next((m for m in provider.static_models if m.id == model_name), None)
+    upstream_name = model.effective_upstream_name if model else model_name
+    return Route(provider, provider_key, upstream_name, model)

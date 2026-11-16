@@ -74,13 +74,14 @@ async def handle(
     model_id = payload.get("model", "")
     rec.model = model_id or None
     try:
-        provider, provider_key, upstream_name = resolve_model(model_id, config)
+        route = resolve_model(model_id, config)
     except ValueError as e:
         rec.error = "invalid_request"
         return JSONResponse(
             content=format_error(inbound_format, 400, "invalid_request_error", str(e)),
             status_code=400,
         )
+    provider, provider_key, upstream_name = route.provider, route.provider_key, route.upstream_name
 
     # Copy and rewrite the model field without mutating the caller's dict.
     upstream_body = {**payload, "model": upstream_name}
